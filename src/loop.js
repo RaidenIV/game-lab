@@ -1,8 +1,8 @@
-// src/loop.js
+// ─── loop.js ──────────────────────────────────────────────────────────────────
 import * as THREE from 'three';
 import {
   renderer, scene, camera, labelRenderer,
-  setActiveCamera, updateIsoCamera, updateThirdCamera,
+  updateIsoCamera, updateThirdCamera, setActiveCamera,
   getMoveForward, getMoveRight,
 } from './renderer.js';
 import { state } from './state.js';
@@ -15,23 +15,24 @@ const clock = new THREE.Clock();
 export function tick() {
   requestAnimationFrame(tick);
 
-  // Cap at 50ms — without this, tabbing away and back causes a single enormous
-  // delta that teleports the player and breaks dash timers.
-  const delta = Math.min(clock.getDelta(), 0.05);
+  const rawDelta = clock.getDelta();
+  const delta    = Math.min(rawDelta, 0.05);
 
+  // Sync camera
   setActiveCamera(state.params.cameraMode);
-
   if (state.params.cameraMode === 'third') {
     updateThirdCamera(playerGroup.position, delta);
   } else {
     updateIsoCamera(playerGroup.position);
   }
 
+  // Update
   updateChunks(playerGroup.position);
   updateSunPosition(playerGroup.position);
   updatePlayer(delta, getMoveForward(), getMoveRight());
   updateDashStreaks(delta);
 
+  // Render
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
 }
