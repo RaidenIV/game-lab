@@ -1,4 +1,6 @@
-// ─── input.js ─────────────────────────────────────────────────────────────────
+// src/input.js
+// Keyboard state is stored on state.keys so movement code can poll it every
+// frame rather than reacting to events. Dash fires on keydown only.
 import * as THREE from 'three';
 import { state } from './state.js';
 import { getMoveForward, getMoveRight } from './renderer.js';
@@ -20,28 +22,28 @@ window.addEventListener('keydown', e => {
   if (k === 'a' || k === 'arrowleft')  state.keys.a = true;
   if (k === 'd' || k === 'arrowright') state.keys.d = true;
 
-  // Dash
   if (e.key === 'Shift' && state.params.dashEnabled) {
     e.preventDefault();
-    const p = state.params;
     if (state.dashCooldown <= 0 && state.dashTimer <= 0) {
+      // Build direction from currently held keys + camera-relative vectors
       _dv.set(0, 0, 0);
-      const fwd   = getMoveForward();
-      const right = getMoveRight();
-      if (state.keys.w) _dv.addScaledVector(fwd,    1);
-      if (state.keys.s) _dv.addScaledVector(fwd,   -1);
-      if (state.keys.a) _dv.addScaledVector(right, -1);
-      if (state.keys.d) _dv.addScaledVector(right,  1);
+      if (state.keys.w) _dv.addScaledVector(getMoveForward(),  1);
+      if (state.keys.s) _dv.addScaledVector(getMoveForward(), -1);
+      if (state.keys.a) _dv.addScaledVector(getMoveRight(),   -1);
+      if (state.keys.d) _dv.addScaledVector(getMoveRight(),    1);
+
+      // If no key held, fall back to last walk direction — dash always goes somewhere useful
       if (_dv.lengthSq() > 0) {
         _dv.normalize();
         state.lastMoveX = _dv.x;
         state.lastMoveZ = _dv.z;
       }
-      state.dashVX          = state.lastMoveX;
-      state.dashVZ          = state.lastMoveZ;
-      state.dashTimer       = p.dashDuration;
-      state.dashCooldown    = p.dashCooldown;
-      state.dashGhostTimer  = 0;
+
+      state.dashVX       = state.lastMoveX;
+      state.dashVZ       = state.lastMoveZ;
+      state.dashTimer    = state.params.dashDuration;
+      state.dashCooldown = state.params.dashCooldown;
+      state.dashGhostTimer = 0;
     }
   }
 });
