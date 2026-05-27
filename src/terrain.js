@@ -12,6 +12,7 @@ const floorMat = new THREE.MeshStandardMaterial({
 const chunks = new Map();
 let _lastCX = null;
 let _lastCZ = null;
+let _gridColor = '#1a2a4a';
 
 function buildChunk(cx, cz) {
   const key = `${cx},${cz}`;
@@ -31,7 +32,7 @@ function buildChunk(cx, cz) {
   grp.add(ground);
 
   // Grid — sits just above floor to avoid z-fighting
-  const grid = new THREE.GridHelper(CHUNK_SIZE, CHUNK_SIZE, 0x1a2a4a, 0x1a2a4a);
+  const grid = new THREE.GridHelper(CHUNK_SIZE, CHUNK_SIZE, _gridColor, _gridColor);
   grid.material.transparent = true;
   grid.material.opacity     = 0.2;
   grid.material.depthWrite  = false;
@@ -87,4 +88,17 @@ export function setGridVisible(v) {
 
 export function setFloorColor(hex) {
   floorMat.color.set(hex);
+}
+
+export function setGridColor(hex) {
+  _gridColor = hex;
+  const c = new THREE.Color(hex);
+  chunks.forEach(grp =>
+    grp.traverse(o => {
+      if (o.userData.isGrid && o.material) {
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        mats.forEach(m => { if (m.color) m.color.set(c); });
+      }
+    })
+  );
 }

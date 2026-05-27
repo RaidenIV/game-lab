@@ -38,8 +38,8 @@ export const state = {
 
     // scene
     fogNear: 1, fogFar: 200,
-    bgColor: '#06080d', floorColor: '#0c1020',
-    showFloor: true, showGrid: true,
+    bgColor: '#06080d', floorColor: '#0c1020', gridColor: '#1a2a4a',
+    showFloor: true, showGrid: true, showFps: false,
   },
 };
 
