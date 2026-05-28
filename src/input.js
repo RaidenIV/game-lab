@@ -68,6 +68,10 @@ function requestMouseLook(target) {
 renderer.domElement.addEventListener('contextmenu', event => event.preventDefault());
 
 renderer.domElement.addEventListener('pointerdown', event => {
+  if (event.button === 0 && isViewportTarget(event.target)) {
+    state.primaryFire = true;
+  }
+
   if (!canUseMouseLook(event.target)) return;
   if (event.button !== 0 && event.button !== 2) return;
 
@@ -91,6 +95,10 @@ window.addEventListener('pointermove', event => {
 });
 
 function stopMouseDrag(event) {
+  if (!event || event.button === 0) {
+    state.primaryFire = false;
+  }
+
   _mouseDragActive = false;
   try {
     if (event?.pointerId !== undefined) renderer.domElement.releasePointerCapture?.(event.pointerId);
@@ -118,6 +126,21 @@ document.addEventListener('pointerlockchange', () => {
 document.addEventListener('mousemove', event => {
   if (document.pointerLockElement !== renderer.domElement) return;
   applyMouseLookDelta(event.movementX || 0, event.movementY || 0);
+});
+
+document.addEventListener('mousedown', event => {
+  if (document.pointerLockElement !== renderer.domElement) return;
+  if (event.button === 0) state.primaryFire = true;
+});
+
+document.addEventListener('mouseup', event => {
+  if (event.button === 0) state.primaryFire = false;
+});
+
+document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement !== renderer.domElement) {
+    state.primaryFire = false;
+  }
 });
 
 window.addEventListener('keydown', e => {

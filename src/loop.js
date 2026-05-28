@@ -9,6 +9,7 @@ import { state } from './state.js';
 import { updateSunPosition } from './lighting.js';
 import { updateChunks } from './terrain.js';
 import { playerGroup, updatePlayer, updateDashStreaks } from './player.js';
+import { updateLaserProjectiles } from './weapons.js';
 
 const clock = new THREE.Clock();
 let _fpsEMA = 60;
@@ -38,6 +39,7 @@ export function tick() {
   updateSunPosition(playerGroup.position);
   updatePlayer(delta, getMoveForward(), getMoveRight());
   updateDashStreaks(delta);
+  updateLaserProjectiles(delta);
 
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);

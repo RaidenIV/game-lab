@@ -20,7 +20,8 @@ const ICON_SHIELD = `<svg xmlns="http://www.w3.org/2000/svg" height="16px" viewB
 const ICON_LIGHT  = `<svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="currentColor"><path d="M565-395q35-35 35-85t-35-85q-35-35-85-35t-85 35q-35 35-35 85t35 85q35 35 85 35t85-35Zm-198.42 28.42Q320-413.15 320-480t46.58-113.42Q413.15-640 480-640t113.42 46.58Q640-546.85 640-480t-46.58 113.42Q546.85-320 480-320t-113.42-46.58ZM80-460q-8.54 0-14.27-5.73T60-480q0-8.54 5.73-14.27T80-500h100q8.54 0 14.27 5.73T200-480q0 8.54-5.73 14.27T180-460H80Zm700 0q-8.54 0-14.27-5.73T760-480q0-8.54 5.73-14.27T780-500h100q8.54 0 14.27 5.73T900-480q0 8.54-5.73 14.27T880-460H780ZM465.73-765.73Q460-771.46 460-780v-100q0-8.54 5.73-14.27T480-900q8.54 0 14.27 5.73T500-880v100q0 8.54-5.73 14.27T480-760q-8.54 0-14.27-5.73Zm0 700Q460-71.46 460-80v-100q0-8.54 5.73-14.27T480-200q8.54 0 14.27 5.73T500-180v100q0 8.54-5.73 14.27T480-60q-8.54 0-14.27-5.73ZM254.46-678.77l-57.61-55.85q-5.85-5.61-5.73-13.76.11-8.16 5.73-14.77 6.61-6.62 14.38-6.62 7.77 0 14.15 6.62L282-706.31q6.38 6.62 6.38 14.16 0 7.53-6.38 14.15-5.62 6.62-13.27 6.12-7.65-.5-14.27-6.89Zm480.16 481.92L678-253.69q-6.38-6.62-6.38-14.27 0-7.66 6.38-14.04 5.62-6.62 13.27-6.12 7.65.5 14.27 6.89l57.61 55.85q5.85 5.61 5.73 13.76-.11 8.16-5.73 14.77-6.61 6.62-14.38 6.62-7.77 0-14.15-6.62ZM678-678q-6.62-5.62-6.12-13.27.5-7.65 6.89-14.27l55.85-57.61q5.61-5.85 13.76-5.73 8.16.11 14.77 5.73 6.62 6.61 6.62 14.38 0 7.77-6.62 14.15L706.31-678q-6.62 6.38-14.16 6.38-7.53 0-14.15-6.38ZM196.85-196.85q-6.62-6.61-6.62-14.38 0-7.77 6.62-14.15L253.69-282q6.62-6.38 14.27-6.38 7.66 0 14.04 6.38 5.85 5.62 5.35 13.27-.5 7.65-6.12 14.27l-55.85 57.61q-6.38 6.62-14.15 6.5-7.77-.11-14.38-6.5ZM480-480Z"/></svg>`;
 const ICON_SCENE  = `<svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="currentColor"><path d="M340-148.42q-65.69-28.43-114.42-77.16-48.73-48.73-77.16-114.42Q120-405.69 120-480.12q0-74.42 28.42-140 28.43-65.57 77.16-114.3 48.73-48.73 114.42-77.16Q405.69-840 480.12-840q74.42 0 140 28.42 65.57 28.43 114.3 77.16 48.73 48.73 77.16 114.3 28.42 65.58 28.42 140 0 74.43-28.42 140.12-28.43 65.69-77.16 114.42-48.73 48.73-114.3 77.16-65.58 28.42-140 28.42-74.43 0-140.12-28.42Zm140-11.27q35.23-45.23 58.08-88.85 22.84-43.61 37.15-97.61H384.77q15.85 57.07 37.92 100.69 22.08 43.61 57.31 85.77Zm-50.92-6q-28-33-51.12-81.58-23.11-48.58-34.42-98.88H190.15q34.39 74.61 97.5 122.38 63.12 47.77 141.43 58.08Zm101.84 0q78.31-10.31 141.43-58.08 63.11-47.77 97.5-122.38H616.46q-15.15 51.07-38.27 99.65-23.11 48.58-47.27 80.81ZM173.85-386.15h161.38q-4.54-24.62-6.42-47.97-1.89-23.34-1.89-45.88 0-22.54 1.89-45.88 1.88-23.35 6.42-47.97H173.85q-6.54 20.77-10.2 45.27Q160-504.08 160-480t3.65 48.58q3.66 24.5 10.2 45.27Zm201.38 0h209.54q4.54-24.62 6.42-47.2 1.89-22.57 1.89-46.65t-1.89-46.65q-1.88-22.58-6.42-47.2H375.23q-4.54 24.62-6.42 47.2-1.89 22.57-1.89 46.65t1.89 46.65q1.88 22.58 6.42 47.2Zm249.54 0h161.38q6.54-20.77 10.2-45.27Q800-455.92 800-480t-3.65-48.58q-3.66-24.5-10.2-45.27H624.77q4.54 24.62 6.42 47.97 1.89 23.34 1.89 45.88 0 22.54-1.89 45.88-1.88 23.35-6.42 47.97Zm-8.31-227.7h153.39Q734.69-690 673.5-736.23q-61.19-46.23-142.58-58.85 28 36.85 50.35 84.27 22.35 47.43 35.19 96.96Zm-231.69 0h190.46q-15.85-56.3-39.08-101.84-23.23-45.54-56.15-84.62-32.92 39.08-56.15 84.62-23.23 45.54-39.08 101.84Zm-194.62 0h153.39q12.84-49.53 35.19-96.96 22.35-47.42 50.35-84.27-82.16 12.62-142.96 59.23-60.81 46.62-95.97 122Z"/></svg>`;
 
-const ICON_WEAPONS = `<img src="./assets/weapons.svg" alt="" class="sb-icon-img">`;
+const ICON_WEAPONS = `<img src="./assets/target.svg" alt="" class="sb-icon-img">`;
+const ICON_HUD = `<img src="./assets/hud.svg" alt="" class="sb-icon-img">`;
 
 const PRESET_SETTINGS = [
   { key: 'default', label: 'Default', path: './presets/default.json', data: {
@@ -74,13 +75,21 @@ const PRESET_SETTINGS = [
   "showFloor": true,
   "showGrid": true,
   "showFps": false,
+  "hudVisible": true,
   "reticleVisible": true,
   "reticleType": "dot",
   "reticleColor": "#ffffff",
   "reticleSize": 24,
   "reticleThickness": 2,
   "reticleOpacity": 1,
-  "reticleGlow": false
+  "reticleGlow": false,
+  "laserEnabled": true,
+  "laserBloom": true,
+  "laserBloomColor": "#ff1100",
+  "laserBloomIntensity": 0.55,
+  "laserProjectileSpeed": 22,
+  "laserRange": 42,
+  "laserFireRate": 5
 } },
   { key: 'g1', label: 'G1', path: './presets/testbed.json', data: {
   "cameraMode": "third",
@@ -133,13 +142,21 @@ const PRESET_SETTINGS = [
   "showFloor": true,
   "showGrid": true,
   "showFps": true,
+  "hudVisible": true,
   "reticleVisible": true,
   "reticleType": "dot",
   "reticleColor": "#ffffff",
   "reticleSize": 24,
   "reticleThickness": 2,
   "reticleOpacity": 1,
-  "reticleGlow": false
+  "reticleGlow": false,
+  "laserEnabled": true,
+  "laserBloom": true,
+  "laserBloomColor": "#ff1100",
+  "laserBloomIntensity": 0.55,
+  "laserProjectileSpeed": 22,
+  "laserRange": 42,
+  "laserFireRate": 5
 } },
 ];
 
@@ -508,12 +525,13 @@ function buildScene(body) {
   body.appendChild(toggle('Show Grid',  'showGrid',  v => setGridVisible(v)));
 
   body.appendChild(subhdr('Debug'));
-  body.appendChild(toggle('Show FPS', 'showFps', v => {
-    const el = document.getElementById('fps-overlay');
-    if (el) el.style.display = v ? '' : 'none';
-  }));
+  body.appendChild(toggle('Show FPS', 'showFps', () => applyHudSettings()));
 }
 
+
+function buildHUD(body) {
+  body.appendChild(toggle('HUD Enabled', 'hudVisible', () => applyHudSettings()));
+}
 
 function buildWeapons(body) {
   body.appendChild(subhdr('Reticle'));
@@ -539,6 +557,23 @@ function buildWeapons(body) {
     onChange: () => applyReticleSettings(),
   }));
   body.appendChild(toggle('Glow', 'reticleGlow', () => applyReticleSettings()));
+
+  body.appendChild(subhdr('Laser Gun'));
+  body.appendChild(toggle('Laser Enabled', 'laserEnabled'));
+  body.appendChild(toggle('Bloom', 'laserBloom'));
+  body.appendChild(colorPicker('Bloom Color', 'laserBloomColor'));
+  body.appendChild(slider({
+    key: 'laserBloomIntensity', label: 'Bloom Intensity', min: 0, max: 1, step: 0.05, dec: 2,
+  }));
+  body.appendChild(slider({
+    key: 'laserProjectileSpeed', label: 'Projectile Speed', min: 1, max: 80, step: 1, dec: 0,
+  }));
+  body.appendChild(slider({
+    key: 'laserRange', label: 'Range', min: 2, max: 160, step: 1, dec: 0,
+  }));
+  body.appendChild(slider({
+    key: 'laserFireRate', label: 'Fire Rate', min: 0.5, max: 20, step: 0.5, dec: 1,
+  }));
 }
 
 // ── JSON export / import / reset ───────────────────────────────────────────────
@@ -688,12 +723,23 @@ function applyReticleSettings() {
 
   const p = state.params;
   setReticleType(el, p.reticleType || 'dot');
-  el.style.display = p.reticleVisible ? '' : 'none';
+  el.style.display = p.hudVisible && p.reticleVisible ? '' : 'none';
   el.style.setProperty('--reticle-color', p.reticleColor);
   el.style.setProperty('--reticle-size', `${p.reticleSize}px`);
   el.style.setProperty('--reticle-thickness', `${p.reticleThickness}px`);
   el.style.setProperty('--reticle-dot-size', `${Math.max(p.reticleThickness * 2, 3)}px`);
   el.style.setProperty('--reticle-opacity', p.reticleOpacity);
+}
+
+function applyHudSettings() {
+  const p = state.params;
+  const instructionsEl = document.getElementById('instructions');
+  if (instructionsEl) instructionsEl.style.display = p.hudVisible ? '' : 'none';
+
+  const fpsEl = document.getElementById('fps-overlay');
+  if (fpsEl) fpsEl.style.display = p.hudVisible && p.showFps ? '' : 'none';
+
+  applyReticleSettings();
 }
 
 const SHADOW_QUALITY = {
@@ -743,9 +789,7 @@ function applyAllParams() {
   setGridColor(p.gridColor);
   setFloorVisible(p.showFloor);
   setGridVisible(p.showGrid);
-  const fpsEl = document.getElementById('fps-overlay');
-  if (fpsEl) fpsEl.style.display = p.showFps ? '' : 'none';
-  applyReticleSettings();
+  applyHudSettings();
 }
 
 // ── Build / rebuild panel DOM ──────────────────────────────────────────────────
@@ -761,6 +805,7 @@ function rebuildPanel() {
     section(ICON_SHIELD,  'Shield',   buildShield),
     section(ICON_LIGHT,   'Lighting', buildLighting),
     section(ICON_SCENE,   'Scene',    buildScene),
+    section(ICON_HUD,     'HUD',      buildHUD),
     section(ICON_WEAPONS, 'Weapons',  buildWeapons),
   ];
 

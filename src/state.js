@@ -4,6 +4,7 @@ export const state = {
   panelMinimized: false,
   activePreset: 'default',
   mouseLookActive: false,
+  primaryFire: false,
   keys: { w: false, a: false, s: false, d: false },
   sidebarWidth: 320,
 
@@ -58,6 +59,9 @@ export const state = {
     bgColor: '#06080d', floorColor: '#0c1020', gridColor: '#1a2a4a',
     showFloor: true, showGrid: true, showFps: false,
 
+    // HUD
+    hudVisible: true,
+
     // weapons / reticle
     reticleVisible: true,
     reticleType: 'dot',
@@ -66,6 +70,15 @@ export const state = {
     reticleThickness: 2,
     reticleOpacity: 1,
     reticleGlow: false,
+
+    // laser gun
+    laserEnabled: true,
+    laserBloom: true,
+    laserBloomColor: '#ff1100',
+    laserBloomIntensity: 0.55,
+    laserProjectileSpeed: 22,
+    laserRange: 42,
+    laserFireRate: 5,
   },
 };
 

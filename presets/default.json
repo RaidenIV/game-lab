@@ -40,6 +40,7 @@
   "showFloor": true,
   "showGrid": true,
   "showFps": false,
+  "hudVisible": true,
   "thirdOffsetMode": "parallel",
   "thirdOffsetX": 1.2,
   "thirdOffsetY": 0,
@@ -55,5 +56,12 @@
   "reticleSize": 24,
   "reticleThickness": 2,
   "reticleOpacity": 1,
-  "reticleGlow": false
+  "reticleGlow": false,
+  "laserEnabled": true,
+  "laserBloom": true,
+  "laserBloomColor": "#ff1100",
+  "laserBloomIntensity": 0.55,
+  "laserProjectileSpeed": 22,
+  "laserRange": 42,
+  "laserFireRate": 5
 }
