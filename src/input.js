@@ -3,7 +3,7 @@
 // frame rather than reacting to events. Dash fires on keydown only.
 import * as THREE from 'three';
 import { state } from './state.js';
-import { getMoveForward, getMoveRight } from './renderer.js';
+import { getMoveForward, getMoveRight, renderer } from './renderer.js';
 
 let _togglePanel = null;
 
@@ -12,9 +12,113 @@ export function initInput({ togglePanel }) {
 }
 
 const _dv = new THREE.Vector3();
+let _mouseDragActive = false;
+let _lastMouseX = 0;
+let _lastMouseY = 0;
+
+function clamp(v, min, max) {
+  return Math.min(max, Math.max(min, v));
+}
+
+function isTypingTarget(target) {
+  const tag = target?.tagName?.toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable;
+}
+
+function normalizeYaw(yaw) {
+  const tau = Math.PI * 2;
+  return ((yaw % tau) + tau) % tau;
+}
+
+function isSidebarTarget(target) {
+  return !!target?.closest?.('#sidebar');
+}
+
+function isViewportTarget(target) {
+  if (!target) return false;
+  if (isSidebarTarget(target) || isTypingTarget(target)) return false;
+  return target === renderer.domElement || target === document.body || target === document.documentElement;
+}
+
+function canUseMouseLook(target) {
+  return state.params.cameraMode === 'third'
+    && state.params.thirdMouseLook
+    && isViewportTarget(target);
+}
+
+function applyMouseLookDelta(dx, dy) {
+  if (state.params.cameraMode !== 'third' || !state.params.thirdMouseLook) return;
+
+  const sx = Number(state.params.thirdMouseSensitivityX) || 0.003;
+  const sy = Number(state.params.thirdMouseSensitivityY) || 0.0024;
+  state.params.thirdAzimuth = normalizeYaw((state.params.thirdAzimuth || 0) - dx * sx);
+  state.params.thirdPitch = clamp((state.params.thirdPitch || 0) - dy * sy, -1.1, 1.1);
+}
+
+function requestMouseLook(target) {
+  if (!canUseMouseLook(target)) return;
+  if (document.pointerLockElement === renderer.domElement) return;
+  renderer.domElement.requestPointerLock?.();
+}
+
+renderer.domElement.addEventListener('contextmenu', event => event.preventDefault());
+
+renderer.domElement.addEventListener('pointerdown', event => {
+  if (!canUseMouseLook(event.target)) return;
+  if (event.button !== 0 && event.button !== 2) return;
+
+  _mouseDragActive = true;
+  _lastMouseX = event.clientX;
+  _lastMouseY = event.clientY;
+  state.mouseLookActive = true;
+  document.body.classList.add('third-person-mouse-look');
+  renderer.domElement.setPointerCapture?.(event.pointerId);
+  requestMouseLook(event.target);
+  event.preventDefault();
+});
+
+window.addEventListener('pointermove', event => {
+  if (!_mouseDragActive || document.pointerLockElement === renderer.domElement) return;
+  const dx = event.clientX - _lastMouseX;
+  const dy = event.clientY - _lastMouseY;
+  _lastMouseX = event.clientX;
+  _lastMouseY = event.clientY;
+  applyMouseLookDelta(dx, dy);
+});
+
+function stopMouseDrag(event) {
+  _mouseDragActive = false;
+  try {
+    if (event?.pointerId !== undefined) renderer.domElement.releasePointerCapture?.(event.pointerId);
+  } catch (_) {
+    // Pointer capture may already be released by the browser.
+  }
+
+  if (document.pointerLockElement !== renderer.domElement) {
+    state.mouseLookActive = false;
+    document.body.classList.remove('third-person-mouse-look');
+  }
+}
+
+window.addEventListener('pointerup', stopMouseDrag);
+window.addEventListener('pointercancel', stopMouseDrag);
+
+// Pointer-lock path: after clicking the game view, raw mouse movement rotates the
+// camera continuously, like a desktop third-person action shooter. ESC exits lock.
+document.addEventListener('pointerlockchange', () => {
+  const locked = document.pointerLockElement === renderer.domElement;
+  state.mouseLookActive = locked || _mouseDragActive;
+  document.body.classList.toggle('third-person-mouse-look', state.mouseLookActive);
+});
+
+document.addEventListener('mousemove', event => {
+  if (document.pointerLockElement !== renderer.domElement) return;
+  applyMouseLookDelta(event.movementX || 0, event.movementY || 0);
+});
 
 window.addEventListener('keydown', e => {
   if (e.key === 'Tab') { e.preventDefault(); _togglePanel?.(); return; }
+  if (isTypingTarget(e.target)) return;
 
   const k = e.key.toLowerCase();
   if (k === 'w' || k === 'arrowup')    state.keys.w = true;
