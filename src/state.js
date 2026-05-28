@@ -38,7 +38,7 @@ export const state = {
     playerColor: '#0044cc',
     playerMetalness: 0.67, playerRoughness: 0.0,
     playerRadius: 0.4, playerLength: 1.2,
-    shieldVisible: true,
+    shieldVisible: false,
     shieldColor: '#1e7bff',
     shieldOpacity: 0.22,
     shieldRadius: 1.45,

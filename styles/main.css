@@ -220,8 +220,11 @@ body.sb-resizing { cursor: ew-resize; user-select: none; }
 .reticle-dot { width: var(--reticle-dot-size); height: var(--reticle-dot-size); }
 .reticle-spoke {
   width: var(--reticle-thickness);
-  height: calc(var(--reticle-size) * 0.28);
-  transform: translate(-50%, -50%) rotate(var(--angle)) translateY(calc(var(--reticle-size) * -0.34));
+  height: calc(var(--reticle-size) * 0.56);
+  transform: translate(-50%, -50%) rotate(var(--angle)) translateY(calc(var(--reticle-size) * -0.68));
+}
+.reticle-center-dot {
+  background: #ffffff;
 }
 .reticle-ring {
   width: var(--reticle-size); height: var(--reticle-size);
