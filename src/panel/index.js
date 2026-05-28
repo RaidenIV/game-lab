@@ -523,6 +523,7 @@ function buildWeapons(body) {
     ['cross', 'Crosshair'],
     ['ring', 'Ring'],
     ['crossDot', 'Cross + Dot'],
+    ['triSpoke', 'Tri-Spoke'],
   ], () => applyReticleSettings()));
   body.appendChild(colorPicker('Color', 'reticleColor', () => applyReticleSettings()));
   body.appendChild(slider({
@@ -663,6 +664,11 @@ const RETICLE_MARKUP = {
     <span class="reticle-part reticle-line reticle-line-h"></span>
     <span class="reticle-part reticle-line reticle-line-v"></span>
     <span class="reticle-part reticle-dot"></span>
+  `,
+  triSpoke: `
+    <span class="reticle-part reticle-spoke" style="--angle: 0deg"></span>
+    <span class="reticle-part reticle-spoke" style="--angle: 120deg"></span>
+    <span class="reticle-part reticle-spoke" style="--angle: 240deg"></span>
   `,
 };
 
