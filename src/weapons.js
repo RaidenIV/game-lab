@@ -11,6 +11,9 @@ const _up = new THREE.Vector3(0, 1, 0);
 const _aimDir = new THREE.Vector3();
 const _spawnPos = new THREE.Vector3();
 const _tmpQuat = new THREE.Quaternion();
+const _aimNdc = new THREE.Vector2();
+const _raycaster = new THREE.Raycaster();
+const _aimPoint = new THREE.Vector3();
 
 const _laserGeo = new THREE.CapsuleGeometry(0.055, 0.7, 6, 12);
 const _laserCoreMat = new THREE.MeshStandardMaterial({
@@ -76,12 +79,21 @@ function releaseLaser(laser) {
   _laserPool.push(laser);
 }
 
-function getAimDirection(target) {
-  camera.getWorldDirection(target);
-  target.y = 0;
+function getAimDirection(target, spawnPos, range) {
+  const x = Number.isFinite(state.pointerAimX) ? state.pointerAimX : 0;
+  const y = Number.isFinite(state.pointerAimY) ? state.pointerAimY : 0;
+
+  _aimNdc.set(x, y);
+  _raycaster.setFromCamera(_aimNdc, camera);
+  _aimPoint.copy(_raycaster.ray.origin).addScaledVector(_raycaster.ray.direction, Math.max(range, 100));
+  target.copy(_aimPoint).sub(spawnPos);
 
   if (target.lengthSq() < 0.0001) {
-    target.set(state.lastMoveX || 0, 0, state.lastMoveZ || 1);
+    target.copy(_raycaster.ray.direction);
+  }
+
+  if (target.lengthSq() < 0.0001) {
+    camera.getWorldDirection(target);
   }
 
   return target.normalize();
@@ -92,10 +104,11 @@ function fireLaser() {
   const speed = Math.max(1, Number(p.laserProjectileSpeed) || 22);
   const range = Math.max(1, Number(p.laserRange) || 42);
   const laser = acquireLaser();
-  const dir = getAimDirection(_aimDir).clone();
 
   _spawnPos.copy(playerGroup.position);
   _spawnPos.y += Math.max(0.55, (Number(p.playerRadius) || 0.4) + (Number(p.playerLength) || 1.2) * 0.55);
+
+  const dir = getAimDirection(_aimDir, _spawnPos, range).clone();
   _spawnPos.addScaledVector(dir, Math.max(0.75, (Number(p.playerRadius) || 0.4) + 0.65));
 
   _tmpQuat.setFromUnitVectors(_up, dir);

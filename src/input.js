@@ -44,6 +44,19 @@ function isMouseLookEnabled() {
   return state.params.thirdMouseLook !== false;
 }
 
+function setPointerAimCenter() {
+  state.pointerAimX = 0;
+  state.pointerAimY = 0;
+}
+
+function updatePointerAimFromClient(clientX, clientY) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+
+  state.pointerAimX = ((clientX - rect.left) / rect.width) * 2 - 1;
+  state.pointerAimY = -(((clientY - rect.top) / rect.height) * 2 - 1);
+}
+
 function canUseMouseLook(target) {
   return state.params.cameraMode === 'third'
     && isMouseLookEnabled()
@@ -68,6 +81,10 @@ function requestMouseLook(target) {
 renderer.domElement.addEventListener('contextmenu', event => event.preventDefault());
 
 renderer.domElement.addEventListener('pointerdown', event => {
+  if (isViewportTarget(event.target)) {
+    updatePointerAimFromClient(event.clientX, event.clientY);
+  }
+
   if (event.button === 0 && isViewportTarget(event.target)) {
     state.primaryFire = true;
   }
@@ -86,6 +103,10 @@ renderer.domElement.addEventListener('pointerdown', event => {
 });
 
 window.addEventListener('pointermove', event => {
+  if (isViewportTarget(event.target) || _mouseDragActive) {
+    updatePointerAimFromClient(event.clientX, event.clientY);
+  }
+
   if (!_mouseDragActive || document.pointerLockElement === renderer.domElement) return;
   const dx = event.clientX - _lastMouseX;
   const dy = event.clientY - _lastMouseY;
@@ -119,12 +140,14 @@ window.addEventListener('pointercancel', stopMouseDrag);
 // camera continuously, like a desktop third-person action shooter. ESC exits lock.
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === renderer.domElement;
+  if (locked) setPointerAimCenter();
   state.mouseLookActive = locked || _mouseDragActive;
   document.body.classList.toggle('third-person-mouse-look', state.mouseLookActive);
 });
 
 document.addEventListener('mousemove', event => {
   if (document.pointerLockElement !== renderer.domElement) return;
+  setPointerAimCenter();
   applyMouseLookDelta(event.movementX || 0, event.movementY || 0);
 });
 

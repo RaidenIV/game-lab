@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game Lab</title>
+<title>Testbed</title>
 <script type="importmap">
 {
   "imports": {
@@ -18,6 +18,29 @@
 <div id="sidebar" class="sidebar"></div>
 <div id="fps-overlay" style="display:none;">FPS <span id="fps-val">-</span></div>
 <div id="target-reticle" aria-hidden="true"></div>
+<div id="game-hud" aria-label="Player status HUD">
+  <div class="game-hud-row game-hud-armor">
+    <span class="game-hud-icon armor-icon" aria-hidden="true"></span>
+    <div class="game-hud-content">
+      <div class="game-hud-line">
+        <span class="game-hud-label">ARMOR</span>
+        <span class="game-hud-value">49</span>
+      </div>
+      <div class="game-hud-track"><span class="game-hud-fill armor-fill"></span></div>
+    </div>
+  </div>
+  <div class="game-hud-row game-hud-health">
+    <span class="game-hud-icon health-icon" aria-hidden="true"></span>
+    <div class="game-hud-content">
+      <div class="game-hud-line">
+        <span class="game-hud-label">HEALTH</span>
+        <span class="game-hud-value">60</span>
+        <span class="game-hud-hourglass" aria-hidden="true">⧗<span></span></span>
+      </div>
+      <div class="game-hud-track"><span class="game-hud-fill health-fill"></span></div>
+    </div>
+  </div>
+</div>
 <div id="instructions">WASD Move · 3rd Person Mouse Camera · Click/Drag View to Aim · ESC Release · SHIFT Dash · TAB Toggle Panel</div>
 <script type="module" src="./src/main.js"></script>
 </body>

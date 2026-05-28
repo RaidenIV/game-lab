@@ -5,6 +5,8 @@ export const state = {
   activePreset: 'default',
   mouseLookActive: false,
   primaryFire: false,
+  pointerAimX: 0,
+  pointerAimY: 0,
   keys: { w: false, a: false, s: false, d: false },
   sidebarWidth: 320,
 

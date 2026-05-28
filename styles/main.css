@@ -196,6 +196,125 @@ body.sb-resizing { cursor: ew-resize; user-select: none; }
 }
 #fps-overlay #fps-val { font-weight: 700; }
 
+
+#game-hud {
+  position: fixed;
+  left: 22px;
+  bottom: 28px;
+  z-index: 24;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 250px;
+  pointer-events: none;
+  color: #ffffff;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+.game-hud-row {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  column-gap: 10px;
+  align-items: center;
+}
+.game-hud-icon {
+  width: 24px;
+  height: 24px;
+  justify-self: center;
+  align-self: center;
+  display: block;
+  background: currentColor;
+  filter: drop-shadow(0 0 5px currentColor) drop-shadow(1px 2px 2px rgba(0,0,0,0.9));
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.armor-icon {
+  color: #4dff63;
+  -webkit-mask-image: url('../assets/shield.svg');
+  mask-image: url('../assets/shield.svg');
+}
+.health-icon {
+  color: #33ddff;
+  -webkit-mask-image: url('../assets/health.svg');
+  mask-image: url('../assets/health.svg');
+}
+.game-hud-content { width: 210px; }
+.game-hud-line {
+  height: 18px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #ffffff;
+  text-shadow:
+    -1px -1px 0 rgba(0,0,0,0.95),
+     1px -1px 0 rgba(0,0,0,0.95),
+    -1px  1px 0 rgba(0,0,0,0.95),
+     1px  1px 0 rgba(0,0,0,0.95),
+     0 2px 4px rgba(0,0,0,0.95);
+}
+.game-hud-label,
+.game-hud-value {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.24em;
+}
+.game-hud-value {
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+.game-hud-hourglass {
+  position: relative;
+  margin-left: auto;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  color: #ffffff;
+}
+.game-hud-hourglass span {
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 5px;
+  height: 5px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(0,0,0,0.85);
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+.game-hud-track {
+  width: 100%;
+  height: 9px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(2, 5, 8, 0.92);
+  border: 1px solid rgba(0,0,0,0.9);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.95), 0 1px 2px rgba(0,0,0,0.75);
+}
+.game-hud-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+.armor-fill {
+  width: 60%;
+  background: linear-gradient(90deg, #188d28 0%, #47ff54 100%);
+  box-shadow: 0 0 8px rgba(71,255,84,0.45);
+}
+.health-fill {
+  width: 50%;
+  background: linear-gradient(90deg, #0776d8 0%, #35e7ff 100%);
+  box-shadow: 0 0 8px rgba(53,231,255,0.45);
+}
+
 #target-reticle {
   --reticle-color: #ffffff;
   --reticle-size: 4px;
