@@ -4,6 +4,8 @@
   "thirdDist": 14,
   "thirdHeight": 7,
   "thirdFov": 65,
+  "thirdMinDist": 6,
+  "thirdPitchDistanceCompression": 0.75,
   "thirdAzimuth": 2.36,
   "thirdLookAhead": 2,
   "thirdSmoothPos": 8,

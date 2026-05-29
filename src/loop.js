@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import {
   renderer, scene, camera, labelRenderer,
-  setActiveCamera, updateIsoCamera, updateThirdCamera,
+  setActiveCamera, updateIsoCamera, updateThirdCamera, isThirdPersonCameraMode,
   getMoveForward, getMoveRight,
 } from './renderer.js';
 import { state } from './state.js';
@@ -29,7 +29,7 @@ export function tick() {
 
   setActiveCamera(state.params.cameraMode);
 
-  if (state.params.cameraMode === 'third') {
+  if (isThirdPersonCameraMode(state.params.cameraMode)) {
     updateThirdCamera(playerGroup.position, delta);
   } else {
     updateIsoCamera(playerGroup.position);

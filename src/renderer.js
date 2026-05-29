@@ -70,8 +70,12 @@ thirdCamera.position.set(0, 10, 20);
 // Mutable export — all modules importing `camera` see the current value
 export let camera = isoCamera;
 
+export function isThirdPersonCameraMode(mode) {
+  return mode === 'third' || mode === 'third2';
+}
+
 export function setActiveCamera(mode) {
-  camera = mode === 'third' ? thirdCamera : isoCamera;
+  camera = isThirdPersonCameraMode(mode) ? thirdCamera : isoCamera;
 }
 
 // ── Camera update functions ────────────────────────────────────────────────────
@@ -101,6 +105,14 @@ export function updateThirdCamera(playerPos, delta) {
   const pitch = clamp(Number(p.thirdPitch) || 0, -1.1, 1.1);
   p.thirdPitch = pitch;
 
+  const baseDist = Math.max(1, Number(p.thirdDist) || 1);
+  const minDist = clamp(Number(p.thirdMinDist) || baseDist, 1, baseDist);
+  const pitchCompression = state.params.cameraMode === 'third2'
+    ? clamp(Number(p.thirdPitchDistanceCompression) || 0, 0, 1)
+    : 0;
+  const pitchAmount = clamp(Math.abs(pitch) / 1.1, 0, 1);
+  const camDist = baseDist + (minDist - baseDist) * pitchAmount * pitchCompression;
+
   _thirdForward.set(-Math.sin(az), 0, -Math.cos(az)).normalize();
   _thirdRight.set(Math.cos(az), 0, -Math.sin(az)).normalize();
 
@@ -115,7 +127,7 @@ export function updateThirdCamera(playerPos, delta) {
 
   // desired eye position — distance/height plus over-shoulder offset controls
   _eye.copy(playerPos)
-    .addScaledVector(_thirdForward, -p.thirdDist + p.thirdOffsetZ)
+    .addScaledVector(_thirdForward, -camDist + p.thirdOffsetZ)
     .add(_thirdLateral);
   _eye.y = playerPos.y + p.thirdHeight + p.thirdOffsetY;
 
@@ -123,11 +135,11 @@ export function updateThirdCamera(playerPos, delta) {
     // Canted/pivot behavior: offset the camera, but converge back toward the
     // player's forward focal lane. Pitch still controls vertical aim.
     _tgt.copy(playerPos).addScaledVector(_thirdForward, p.thirdLookAhead);
-    _tgt.y = _eye.y + Math.tan(pitch) * Math.max(1, p.thirdDist + p.thirdLookAhead);
+    _tgt.y = _eye.y + Math.tan(pitch) * Math.max(1, camDist + p.thirdLookAhead);
   } else {
     // Parallel OTS behavior: shift the camera sideways without toe-in. The
     // camera looks straight along its yaw/pitch vector, like a PC action game.
-    _tgt.copy(_eye).addScaledVector(_thirdViewDir, Math.max(1, p.thirdDist + p.thirdLookAhead));
+    _tgt.copy(_eye).addScaledVector(_thirdViewDir, Math.max(1, camDist + p.thirdLookAhead));
   }
 
   const sp = Math.min(1, p.thirdSmoothPos  * delta);
@@ -160,7 +172,7 @@ const _fwd   = new THREE.Vector3();
 const _right = new THREE.Vector3();
 
 export function getMoveForward() {
-  if (state.params.cameraMode === 'third') {
+  if (isThirdPersonCameraMode(state.params.cameraMode)) {
     const az = state.params.thirdAzimuth;
     return _fwd.set(-Math.sin(az), 0, -Math.cos(az));
   }
@@ -168,7 +180,7 @@ export function getMoveForward() {
 }
 
 export function getMoveRight() {
-  if (state.params.cameraMode === 'third') {
+  if (isThirdPersonCameraMode(state.params.cameraMode)) {
     const az = state.params.thirdAzimuth;
     return _right.set(Math.cos(az), 0, -Math.sin(az));
   }

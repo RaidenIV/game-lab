@@ -3,7 +3,7 @@
 // frame rather than reacting to events. Dash fires on keydown only.
 import * as THREE from 'three';
 import { state } from './state.js';
-import { getMoveForward, getMoveRight, renderer } from './renderer.js';
+import { getMoveForward, getMoveRight, isThirdPersonCameraMode, renderer } from './renderer.js';
 
 let _togglePanel = null;
 
@@ -58,13 +58,13 @@ function updatePointerAimFromClient(clientX, clientY) {
 }
 
 function canUseMouseLook(target) {
-  return state.params.cameraMode === 'third'
+  return isThirdPersonCameraMode(state.params.cameraMode)
     && isMouseLookEnabled()
     && isViewportTarget(target);
 }
 
 function applyMouseLookDelta(dx, dy) {
-  if (state.params.cameraMode !== 'third' || !isMouseLookEnabled()) return;
+  if (!isThirdPersonCameraMode(state.params.cameraMode) || !isMouseLookEnabled()) return;
 
   const sx = Number(state.params.thirdMouseSensitivityX) || 0.003;
   const sy = Number(state.params.thirdMouseSensitivityY) || 0.0024;

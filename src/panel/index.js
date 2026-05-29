@@ -4,7 +4,7 @@
 // This ensures JSON export always reflects reality.
 import * as THREE from 'three';
 import { state, defaultParams } from '../state.js';
-import { scene, renderer, applyIsoCamD, setActiveCamera, onResize } from '../renderer.js';
+import { scene, renderer, applyIsoCamD, setActiveCamera, onResize, isThirdPersonCameraMode } from '../renderer.js';
 import { ambientLight, sunLight, fillLight, rimLight } from '../lighting.js';
 import {
   playerMat, playerBaseColor, rebuildPlayerGeo, applyPlayerMaterial, applyShieldSettings,
@@ -30,6 +30,8 @@ const PRESET_SETTINGS = [
   "thirdDist": 14,
   "thirdHeight": 7,
   "thirdFov": 65,
+  "thirdMinDist": 6,
+  "thirdPitchDistanceCompression": 0.75,
   "thirdAzimuth": 2.36,
   "thirdLookAhead": 2,
   "thirdSmoothPos": 8,
@@ -98,6 +100,8 @@ const PRESET_SETTINGS = [
   "thirdDist": 4,
   "thirdHeight": 3.5,
   "thirdFov": 62,
+  "thirdMinDist": 3,
+  "thirdPitchDistanceCompression": 0.75,
   "thirdAzimuth": 0,
   "thirdLookAhead": 3.8,
   "thirdSmoothPos": 10,
@@ -409,19 +413,25 @@ function btn(label, cls, onClick) {
 // ── Section builders ───────────────────────────────────────────────────────────
 
 function buildCamera(body) {
+  const syncCameraGroups = mode => {
+    const isThird = isThirdPersonCameraMode(mode);
+    isoGroup.style.display    = mode === 'iso' ? '' : 'none';
+    thirdGroup.style.display  = isThird ? '' : 'none';
+    third2Group.style.display = mode === 'third2' ? '' : 'none';
+  };
+
   // Camera type — shows/hides the relevant sub-group
   body.appendChild(select('Type', 'cameraMode', [
-    ['iso',   'Isometric'],
-    ['third', '3rd Person'],
+    ['iso',    'Isometric'],
+    ['third',  '3rd Person'],
+    ['third2', '3rd Person 2'],
   ], v => {
     setActiveCamera(v);
     onResize();
-    isoGroup.style.display   = v === 'iso'   ? '' : 'none';
-    thirdGroup.style.display = v === 'third' ? '' : 'none';
+    syncCameraGroups(v);
   }));
 
   const isoGroup = document.createElement('div');
-  isoGroup.style.display = state.params.cameraMode === 'iso' ? '' : 'none';
   isoGroup.appendChild(slider({
     key: 'isoCamD', label: 'Zoom', min: 4, max: 40, step: 0.5, dec: 1,
     onChange: v => applyIsoCamD(v),
@@ -429,7 +439,6 @@ function buildCamera(body) {
   body.appendChild(isoGroup);
 
   const thirdGroup = document.createElement('div');
-  thirdGroup.style.display = state.params.cameraMode === 'third' ? '' : 'none';
   [
     { key: 'thirdDist',       label: 'Distance',       min: 4,  max: 40,          step: 0.5,  dec: 1 },
     { key: 'thirdHeight',     label: 'Height',         min: 2,  max: 20,          step: 0.5,  dec: 1 },
@@ -462,6 +471,16 @@ function buildCamera(body) {
     { key: 'thirdOffsetY', label: 'Vertical Offset', min: -5,  max: 10, step: 0.25, dec: 2 },
     { key: 'thirdOffsetZ', label: 'Forward Offset',  min: -10, max: 10, step: 0.25, dec: 2 },
   ].forEach(o => thirdGroup.appendChild(slider(o)));
+
+  const third2Group = document.createElement('div');
+  third2Group.appendChild(subhdr('Pitch Distance'));
+  [
+    { key: 'thirdPitchDistanceCompression', label: 'Compression',  min: 0, max: 1,  step: 0.05, dec: 2 },
+    { key: 'thirdMinDist',                  label: 'Min Distance', min: 1, max: 40, step: 0.5,  dec: 1 },
+  ].forEach(o => third2Group.appendChild(slider(o)));
+  thirdGroup.appendChild(third2Group);
+
+  syncCameraGroups(state.params.cameraMode);
   body.appendChild(thirdGroup);
 }
 

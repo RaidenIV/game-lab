@@ -23,9 +23,10 @@ export const state = {
 
   params: {
     // camera
-    cameraMode: 'iso',    // 'iso' | 'third'
+    cameraMode: 'iso',    // 'iso' | 'third' | 'third2'
     isoCamD: 12,
     thirdDist: 14, thirdHeight: 7, thirdFov: 65,
+    thirdMinDist: 6, thirdPitchDistanceCompression: 0.75,
     thirdAzimuth: 2.36,   // radians, ~135° behind-right
     thirdLookAhead: 2.0,
     thirdSmoothPos: 8.0, thirdSmoothLook: 12.0,
