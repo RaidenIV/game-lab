@@ -27,6 +27,8 @@ export const state = {
     isoCamD: 12,
     thirdDist: 14, thirdHeight: 7, thirdFov: 65,
     thirdMinDist: 6, thirdPitchDistanceCompression: 0.75,
+    third2PitchMin: -0.9, third2PitchMax: 0.85,
+    third2BodyFrameStrength: 1.0, third2BodyFrameHeight: 1.35, third2BodyScreenY: 0.45, third2MinEyeHeight: 0.15,
     thirdAzimuth: 2.36,   // radians, ~135° behind-right
     thirdLookAhead: 2.0,
     thirdSmoothPos: 8.0, thirdSmoothLook: 12.0,

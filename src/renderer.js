@@ -94,23 +94,43 @@ const _thirdForward = new THREE.Vector3();
 const _thirdRight = new THREE.Vector3();
 const _thirdLateral = new THREE.Vector3();
 const _thirdViewDir = new THREE.Vector3();
+const _thirdBodyAnchor = new THREE.Vector3();
+const _thirdFramedEye = new THREE.Vector3();
+const _thirdFramedTarget = new THREE.Vector3();
+const _thirdCameraUp = new THREE.Vector3();
 
 function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
 }
 
+export function getThirdPitchRange() {
+  if (state.params.cameraMode !== 'third2') {
+    return { min: -1.1, max: 1.1 };
+  }
+
+  const minRaw = Number(state.params.third2PitchMin);
+  const maxRaw = Number(state.params.third2PitchMax);
+  const min = clamp(Number.isFinite(minRaw) ? minRaw : -0.9, -1.4, 0);
+  const max = clamp(Number.isFinite(maxRaw) ? maxRaw : 0.85, 0, 1.4);
+
+  return { min, max: Math.max(max, min + 0.05) };
+}
+
 export function updateThirdCamera(playerPos, delta) {
   const p = state.params;
   const az = Number(p.thirdAzimuth) || 0;
-  const pitch = clamp(Number(p.thirdPitch) || 0, -1.1, 1.1);
+  const pitchRange = getThirdPitchRange();
+  const pitch = clamp(Number(p.thirdPitch) || 0, pitchRange.min, pitchRange.max);
   p.thirdPitch = pitch;
 
   const baseDist = Math.max(1, Number(p.thirdDist) || 1);
   const minDist = clamp(Number(p.thirdMinDist) || baseDist, 1, baseDist);
-  const pitchCompression = state.params.cameraMode === 'third2'
+  const isThird2 = state.params.cameraMode === 'third2';
+  const pitchCompression = isThird2
     ? clamp(Number(p.thirdPitchDistanceCompression) || 0, 0, 1)
     : 0;
-  const pitchAmount = clamp(Math.abs(pitch) / 1.1, 0, 1);
+  const maxPitchForCompression = Math.max(Math.abs(pitchRange.min), Math.abs(pitchRange.max), 0.2);
+  const pitchAmount = clamp(Math.abs(pitch) / maxPitchForCompression, 0, 1);
   const camDist = baseDist + (minDist - baseDist) * pitchAmount * pitchCompression;
 
   _thirdForward.set(-Math.sin(az), 0, -Math.cos(az)).normalize();
@@ -140,6 +160,50 @@ export function updateThirdCamera(playerPos, delta) {
     // Parallel OTS behavior: shift the camera sideways without toe-in. The
     // camera looks straight along its yaw/pitch vector, like a PC action game.
     _tgt.copy(_eye).addScaledVector(_thirdViewDir, Math.max(1, camDist + p.thirdLookAhead));
+  }
+
+  if (isThird2) {
+    // Shooter-style body framing: when the player pitches up/down, the camera
+    // boom orbits around a body/shoulder anchor instead of only tilting from a
+    // fixed eye height. This keeps the player capsule in frame at steep angles.
+    const bodyHeight = Math.max(0.5, (Number(p.playerRadius) || 0.4) * 2 + (Number(p.playerLength) || 1.2));
+    const bodyFrameHeightRaw = Number(p.third2BodyFrameHeight);
+    const bodyFrameHeight = clamp(
+      Number.isFinite(bodyFrameHeightRaw) ? bodyFrameHeightRaw : bodyHeight * 0.68,
+      0.25,
+      bodyHeight + 1.5
+    );
+    const bodyFrameStrength = clamp(Number(p.third2BodyFrameStrength) || 0, 0, 1);
+    const bodyScreenY = clamp(Number(p.third2BodyScreenY) || 0, -0.75, 0.75);
+    const minEyeHeight = clamp(Number(p.third2MinEyeHeight) || 0.15, 0.05, bodyHeight + 2.0);
+    const bodyFrameBlend = clamp(pitchAmount * 2, 0, 1) * bodyFrameStrength;
+
+    if (bodyFrameBlend > 0) {
+      _thirdBodyAnchor.copy(playerPos);
+      _thirdBodyAnchor.y += bodyFrameHeight;
+      _thirdCameraUp.crossVectors(_thirdRight, _thirdViewDir).normalize();
+
+      _thirdFramedEye.copy(_thirdBodyAnchor)
+        .addScaledVector(_thirdViewDir, -camDist)
+        .addScaledVector(_thirdCameraUp, -bodyScreenY * camDist * Math.tan(THREE.MathUtils.degToRad(p.thirdFov * 0.5)))
+        .addScaledVector(_thirdRight, p.thirdOffsetX)
+        .addScaledVector(_thirdForward, p.thirdOffsetZ);
+      _thirdFramedEye.y += p.thirdOffsetY;
+      _thirdFramedEye.y = Math.max(playerPos.y + minEyeHeight, _thirdFramedEye.y);
+
+      if (p.thirdOffsetMode === 'pivot') {
+        _thirdFramedTarget.copy(_thirdBodyAnchor).addScaledVector(_thirdForward, p.thirdLookAhead);
+        _thirdFramedTarget.y = _thirdFramedEye.y + Math.tan(pitch) * Math.max(1, camDist + p.thirdLookAhead);
+      } else {
+        _thirdFramedTarget.copy(_thirdFramedEye).addScaledVector(
+          _thirdViewDir,
+          Math.max(1, camDist + p.thirdLookAhead)
+        );
+      }
+
+      _eye.lerp(_thirdFramedEye, bodyFrameBlend);
+      _tgt.lerp(_thirdFramedTarget, bodyFrameBlend);
+    }
   }
 
   const sp = Math.min(1, p.thirdSmoothPos  * delta);

@@ -32,6 +32,12 @@ const PRESET_SETTINGS = [
   "thirdFov": 65,
   "thirdMinDist": 6,
   "thirdPitchDistanceCompression": 0.75,
+  "third2PitchMin": -0.9,
+  "third2PitchMax": 0.85,
+  "third2BodyFrameStrength": 1,
+  "third2BodyFrameHeight": 1.35,
+  "third2BodyScreenY": 0.45,
+  "third2MinEyeHeight": 0.15,
   "thirdAzimuth": 2.36,
   "thirdLookAhead": 2,
   "thirdSmoothPos": 8,
@@ -102,6 +108,12 @@ const PRESET_SETTINGS = [
   "thirdFov": 62,
   "thirdMinDist": 3,
   "thirdPitchDistanceCompression": 0.75,
+  "third2PitchMin": -0.9,
+  "third2PitchMax": 0.85,
+  "third2BodyFrameStrength": 1,
+  "third2BodyFrameHeight": 1.35,
+  "third2BodyScreenY": 0.45,
+  "third2MinEyeHeight": 0.15,
   "thirdAzimuth": 0,
   "thirdLookAhead": 3.8,
   "thirdSmoothPos": 10,
@@ -477,6 +489,20 @@ function buildCamera(body) {
   [
     { key: 'thirdPitchDistanceCompression', label: 'Compression',  min: 0, max: 1,  step: 0.05, dec: 2 },
     { key: 'thirdMinDist',                  label: 'Min Distance', min: 1, max: 40, step: 0.5,  dec: 1 },
+  ].forEach(o => third2Group.appendChild(slider(o)));
+
+  third2Group.appendChild(subhdr('Range Limits'));
+  [
+    { key: 'third2PitchMin', label: 'Look Down Limit', min: -1.4, max: 0,   step: 0.01, dec: 2 },
+    { key: 'third2PitchMax', label: 'Look Up Limit',   min: 0,    max: 1.4, step: 0.01, dec: 2 },
+  ].forEach(o => third2Group.appendChild(slider(o)));
+
+  third2Group.appendChild(subhdr('Body Framing'));
+  [
+    { key: 'third2BodyFrameStrength', label: 'Body Visibility', min: 0,    max: 1,   step: 0.05, dec: 2 },
+    { key: 'third2BodyFrameHeight',   label: 'Body Anchor',     min: 0.25, max: 3.5, step: 0.05, dec: 2 },
+    { key: 'third2BodyScreenY',       label: 'Screen Position', min: -0.75, max: 0.75, step: 0.05, dec: 2 },
+    { key: 'third2MinEyeHeight',      label: 'Eye Floor',       min: 0.05, max: 3.5, step: 0.05, dec: 2 },
   ].forEach(o => third2Group.appendChild(slider(o)));
   thirdGroup.appendChild(third2Group);
 
