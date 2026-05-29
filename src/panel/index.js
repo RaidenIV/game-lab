@@ -10,6 +10,7 @@ import {
   playerMat, playerBaseColor, rebuildPlayerGeo, applyPlayerMaterial, applyShieldSettings,
 } from '../player.js';
 import { setFloorVisible, setGridVisible, setFloorColor, setGridColor } from '../terrain.js';
+import { spawnEnemiesFromSettings, clearEnemies } from '../enemies.js';
 
 const sidebar = document.getElementById('sidebar');
 
@@ -806,6 +807,14 @@ function buildEnemies(body) {
   body.appendChild(slider({ key: 'enemyDamage', label: 'Damage Amount', min: 0, max: 250, step: 1, dec: 0 }));
   body.appendChild(select('Placement', 'enemyPlacement', ENEMY_PLACEMENT_OPTIONS));
   body.appendChild(select('Weapon Type', 'enemyWeaponType', ENEMY_WEAPON_OPTIONS));
+  body.appendChild(btn('Spawn / Apply Enemies', 'sb-btn-accent', () => {
+    const count = spawnEnemiesFromSettings();
+    notify(`${count} enemies spawned ✓`);
+  }));
+  body.appendChild(btn('Clear Enemies', 'sb-btn-muted', () => {
+    clearEnemies();
+    notify('Enemies cleared ✓');
+  }));
 }
 
 function buildWeapons(body) {

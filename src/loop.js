@@ -10,9 +10,11 @@ import { updateSunPosition } from './lighting.js';
 import { updateChunks } from './terrain.js';
 import { playerGroup, updatePlayer, updateDashStreaks } from './player.js';
 import { updateLaserProjectiles } from './weapons.js';
+import { updateEnemies } from './enemies.js';
 
 const clock = new THREE.Clock();
 let _fpsEMA = 60;
+let _elapsed = 0;
 
 export function tick() {
   requestAnimationFrame(tick);
@@ -21,6 +23,7 @@ export function tick() {
   // delta that teleports the player and breaks dash timers.
   const rawDelta = clock.getDelta();
   const delta    = Math.min(rawDelta, 0.05);
+  _elapsed += delta;
 
   // FPS — exponential moving average, update display every frame
   _fpsEMA = _fpsEMA * 0.9 + (1 / Math.max(rawDelta, 0.001)) * 0.1;
@@ -39,6 +42,7 @@ export function tick() {
   updateSunPosition(playerGroup.position);
   updatePlayer(delta, getMoveForward(), getMoveRight());
   updateDashStreaks(delta);
+  updateEnemies(delta, _elapsed);
   updateLaserProjectiles(delta);
 
   renderer.render(scene, camera);

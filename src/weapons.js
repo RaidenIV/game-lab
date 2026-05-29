@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { state } from './state.js';
 import { scene, camera } from './renderer.js';
 import { playerGroup } from './player.js';
+import { damageEnemiesAt } from './enemies.js';
 
 const _up = new THREE.Vector3(0, 1, 0);
 const _aimDir = new THREE.Vector3();
@@ -156,6 +157,12 @@ export function updateLaserProjectiles(delta) {
     laser.group.position.addScaledVector(laser.dir, step);
     laser.distance += step;
     laser.glow.visible = !!p.laserBloom;
+
+    if (damageEnemiesAt(laser.group.position, 0.36, 34)) {
+      _activeLasers.splice(i, 1);
+      releaseLaser(laser);
+      continue;
+    }
 
     if (laser.distance >= laser.maxRange) {
       _activeLasers.splice(i, 1);
