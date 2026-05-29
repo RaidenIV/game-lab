@@ -176,6 +176,14 @@ window.addEventListener('keydown', e => {
   if (k === 'a' || k === 'arrowleft')  state.keys.a = true;
   if (k === 'd' || k === 'arrowright') state.keys.d = true;
 
+  if (e.code === 'Space') {
+    e.preventDefault();
+    state.keys.space = true;
+    if (!e.repeat && state.params.jumpEnabled) {
+      state.jumpQueued = true;
+    }
+  }
+
   if (e.key === 'Shift' && state.params.dashEnabled) {
     e.preventDefault();
     if (state.dashCooldown <= 0 && state.dashTimer <= 0) {
@@ -208,4 +216,5 @@ window.addEventListener('keyup', e => {
   if (k === 's' || k === 'arrowdown')  state.keys.s = false;
   if (k === 'a' || k === 'arrowleft')  state.keys.a = false;
   if (k === 'd' || k === 'arrowright') state.keys.d = false;
+  if (e.code === 'Space') state.keys.space = false;
 });

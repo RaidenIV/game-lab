@@ -5,9 +5,12 @@ export const state = {
   activePreset: 'g3',
   mouseLookActive: false,
   primaryFire: false,
+  jumpQueued: false,
+  jumpVelocity: 0,
+  jumpGrounded: true,
   pointerAimX: 0,
   pointerAimY: 0,
-  keys: { w: false, a: false, s: false, d: false },
+  keys: { w: false, a: false, s: false, d: false, space: false },
   sidebarWidth: 320,
 
   // dash runtime
@@ -53,6 +56,9 @@ export const state = {
       "playerRoughness": 0,
       "playerRadius": 0.4,
       "playerLength": 1.2,
+      "jumpEnabled": true,
+      "jumpForce": 9.5,
+      "jumpGravity": 26,
       "shieldVisible": false,
       "shieldColor": "#1e7bff",
       "shieldOpacity": 0.22,

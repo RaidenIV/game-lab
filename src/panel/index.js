@@ -56,6 +56,9 @@ const PRESET_SETTINGS = [
   "playerRoughness": 0,
   "playerRadius": 0.4,
   "playerLength": 1.2,
+  "jumpEnabled": true,
+  "jumpForce": 9.5,
+  "jumpGravity": 26,
   "shieldVisible": false,
   "shieldColor": "#1e7bff",
   "shieldOpacity": 0.22,
@@ -132,6 +135,9 @@ const PRESET_SETTINGS = [
   "playerRoughness": 0,
   "playerRadius": 0.4,
   "playerLength": 1.2,
+  "jumpEnabled": true,
+  "jumpForce": 9.5,
+  "jumpGravity": 26,
   "shieldVisible": false,
   "shieldColor": "#1e7bff",
   "shieldOpacity": 0.22,
@@ -204,6 +210,9 @@ const PRESET_SETTINGS = [
   "playerRoughness": 0,
   "playerRadius": 0.4,
   "playerLength": 1.2,
+  "jumpEnabled": true,
+  "jumpForce": 9.5,
+  "jumpGravity": 26,
   "shieldVisible": false,
   "shieldColor": "#1e7bff",
   "shieldOpacity": 0.22,
@@ -254,6 +263,9 @@ const PRESET_SETTINGS = [
 } },
 ];
 
+
+
+const ICON_ENEMIES = `<span class="sb-icon-mask" style="--icon-url: url('./assets/enemy.svg');" aria-hidden="true"></span>`;
 
 const HUD_FONT_OPTIONS = [
   ['system', 'System Default'],
@@ -655,6 +667,11 @@ function buildPlayer(body) {
     onChange: () => rebuildPlayerGeo(),
   }));
 
+  body.appendChild(subhdr('Jump'));
+  body.appendChild(toggle('Jump Enabled', 'jumpEnabled'));
+  body.appendChild(slider({ key: 'jumpForce', label: 'Jump Force', min: 2, max: 24, step: 0.5, dec: 1 }));
+  body.appendChild(slider({ key: 'jumpGravity', label: 'Gravity', min: 5, max: 80, step: 1, dec: 0 }));
+
   body.appendChild(subhdr('Dash'));
   body.appendChild(toggle('Dash Enabled', 'dashEnabled'));
   body.appendChild(slider({ key: 'dashSpeed',    label: 'Speed',    min: 5,    max: 60,  step: 1,    dec: 0 }));
@@ -743,6 +760,10 @@ function buildScene(body) {
 function buildHUD(body) {
   body.appendChild(toggle('HUD Enabled', 'hudVisible', () => applyHudSettings()));
   body.appendChild(select('Font', 'hudFont', HUD_FONT_OPTIONS, () => applyHudSettings()));
+}
+
+function buildEnemies(body) {
+  body.appendChild(subhdr('Enemies'));
 }
 
 function buildWeapons(body) {
@@ -1029,6 +1050,7 @@ function rebuildPanel() {
     section(ICON_LIGHT,   'Lighting', buildLighting),
     section(ICON_SCENE,   'Scene',    buildScene),
     section(ICON_HUD,     'HUD',      buildHUD),
+    section(ICON_ENEMIES, 'Enemies',  buildEnemies),
     section(ICON_WEAPONS, 'Weapons',  buildWeapons),
   ];
 

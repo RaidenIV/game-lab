@@ -305,8 +305,8 @@ body.sb-resizing { cursor: ew-resize; user-select: none; }
   mask-size: contain;
 }
 .armor-icon {
-  -webkit-mask-image: url('../assets/shield.svg');
-  mask-image: url('../assets/shield.svg');
+  -webkit-mask-image: url('../assets/shield_hud.svg');
+  mask-image: url('../assets/shield_hud.svg');
 }
 .health-icon {
   -webkit-mask-image: url('../assets/health.svg');

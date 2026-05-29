@@ -64,6 +64,7 @@ playerGroup.add(playerContactShadow);
 function applyPlayerContactShadow() {
   const p = state.params;
   const contactSize = Math.max(0.82, p.playerRadius * 3.1);
+  playerContactShadow.position.y = 0.008 - playerGroup.position.y;
   playerContactShadow.scale.set(contactSize, contactSize, 1);
   playerContactShadow.visible = !!p.shadows && !!p.showFloor;
 }
@@ -482,10 +483,44 @@ export function updateDashStreaks(delta) {
 }
 
 // ── Per-frame update ───────────────────────────────────────────────────────────
+
+function updateJump(delta) {
+  const p = state.params;
+
+  if (!p.jumpEnabled) {
+    state.jumpQueued = false;
+    state.jumpVelocity = 0;
+    state.jumpGrounded = true;
+    playerGroup.position.y = 0;
+    return;
+  }
+
+  const jumpForce = Math.max(0, Number(p.jumpForce) || 0);
+  const gravity = Math.max(1, Number(p.jumpGravity) || 26);
+
+  if (state.jumpQueued && state.jumpGrounded) {
+    state.jumpVelocity = jumpForce;
+    state.jumpGrounded = false;
+  }
+  state.jumpQueued = false;
+
+  if (!state.jumpGrounded || playerGroup.position.y > 0) {
+    state.jumpVelocity -= gravity * delta;
+    playerGroup.position.y += state.jumpVelocity * delta;
+
+    if (playerGroup.position.y <= 0) {
+      playerGroup.position.y = 0;
+      state.jumpVelocity = 0;
+      state.jumpGrounded = true;
+    }
+  }
+}
+
 const _v = new THREE.Vector3();
 
 export function updatePlayer(delta, moveForward, moveRight) {
   const p = state.params;
+  updateJump(delta);
   applyPlayerContactShadow();
 
   // Walking — poll state.keys each frame
