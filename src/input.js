@@ -56,8 +56,16 @@ export function clearGameplayInput() {
   state.keys.d = false;
   state.keys.space = false;
   state.primaryFire = false;
+  state.controllerPrimaryFire = false;
+  state.controllerMoveX = 0;
+  state.controllerMoveY = 0;
   state.jumpQueued = false;
   _mouseDragActive = false;
+  state.mouseLookActive = false;
+  document.body.classList.remove('third-person-mouse-look');
+  if (document.pointerLockElement === renderer.domElement) {
+    document.exitPointerLock?.();
+  }
 }
 
 function updatePointerAimFromClient(clientX, clientY) {
@@ -153,7 +161,7 @@ window.addEventListener('pointerup', stopMouseDrag);
 window.addEventListener('pointercancel', stopMouseDrag);
 
 // Pointer-lock path: after clicking the game view, raw mouse movement rotates the
-// camera continuously, like a desktop third-person action shooter. ESC exits lock.
+// camera continuously, like a desktop third-person action shooter.
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === renderer.domElement;
   if (locked) setPointerAimCenter();

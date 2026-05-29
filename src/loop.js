@@ -10,7 +10,8 @@ import { updateSunPosition } from './lighting.js';
 import { updateChunks } from './terrain.js';
 import { playerGroup, updatePlayer, updateDashStreaks } from './player.js';
 import { updateLaserProjectiles } from './weapons.js';
-import { updateEnemies } from './enemies.js';
+import { updateEnemies, isCenterAimOverEnemy } from './enemies.js';
+import { updateController } from './controller.js';
 
 const clock = new THREE.Clock();
 let _fpsEMA = 60;
@@ -23,6 +24,13 @@ const TIME_SLOW_CONFIG = Object.freeze({
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function updateReticleEnemyHover() {
+  const reticle = document.getElementById('target-reticle');
+  if (!reticle) return;
+  const overEnemy = state.params.reticleVisible !== false && isCenterAimOverEnemy(camera);
+  reticle.classList.toggle('reticle-enemy-hover', overEnemy);
 }
 
 function getTargetWorldScale() {
@@ -80,9 +88,17 @@ export function tick() {
 
   updateChunks(playerGroup.position);
   updateSunPosition(playerGroup.position);
+  updateReticleEnemyHover();
+  updateController(delta);
 
   if (state.paused) {
     state.primaryFire = false;
+    state.controllerPrimaryFire = false;
+    state.mouseLookActive = false;
+    document.body.classList.remove('third-person-mouse-look');
+    if (document.pointerLockElement === renderer.domElement) {
+      document.exitPointerLock?.();
+    }
     renderer.render(scene, camera);
     labelRenderer.render(scene, camera);
     return;

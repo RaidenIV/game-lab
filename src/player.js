@@ -523,17 +523,26 @@ export function updatePlayer(delta, moveForward, moveRight) {
   updateJump(delta);
   applyPlayerContactShadow();
 
-  // Walking — poll state.keys each frame
+  // Walking — poll keyboard plus optional analog controller movement.
   _v.set(0, 0, 0);
   if (state.keys.w) _v.addScaledVector(moveForward,  1);
   if (state.keys.s) _v.addScaledVector(moveForward, -1);
   if (state.keys.a) _v.addScaledVector(moveRight,   -1);
   if (state.keys.d) _v.addScaledVector(moveRight,    1);
 
-  if (_v.lengthSq() > 0) {
-    _v.normalize();
-    state.lastMoveX = _v.x;
-    state.lastMoveZ = _v.z;
+  const controllerMoveX = Number(state.controllerMoveX) || 0;
+  const controllerMoveY = Number(state.controllerMoveY) || 0;
+  if (controllerMoveX || controllerMoveY) {
+    _v.addScaledVector(moveRight, controllerMoveX);
+    _v.addScaledVector(moveForward, -controllerMoveY);
+  }
+
+  const moveLength = _v.length();
+  if (moveLength > 0) {
+    if (moveLength > 1) _v.multiplyScalar(1 / moveLength);
+    const dashDir = _v.clone().normalize();
+    state.lastMoveX = dashDir.x;
+    state.lastMoveZ = dashDir.z;
     playerGroup.position.addScaledVector(_v, p.playerSpeed * delta);
   }
 

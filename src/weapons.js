@@ -141,7 +141,9 @@ export function updateLaserProjectiles(delta, projectileDelta = delta) {
   const fireRate = Math.max(0.1, Number(p.laserFireRate) || 5);
   const interval = 1 / fireRate;
 
-  if (!p.laserEnabled || !state.primaryFire) {
+  const firing = !!state.primaryFire || !!state.controllerPrimaryFire;
+
+  if (!p.laserEnabled || !firing) {
     _laserCooldown = 0;
   } else {
     _laserCooldown -= delta;

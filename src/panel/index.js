@@ -295,6 +295,7 @@ const ICON_ENEMIES = `<svg xmlns="http://www.w3.org/2000/svg" height="16px" view
 
 
 const ICON_DESTRUCTION = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M361.24-112Q258-112 185-184.68 112-257.35 112-360q0-105 75.5-176.5T369-608q8 0 16.5.5T402-606l23-41q9-17 27-21.5t35 4.5l25 14 5-8q20-34 57-44t71 10l12 7-14 24-12-7q-24-14-51-7t-40 31l-4 8 25 14q17 9 21.5 27t-4.5 35l-24 42q23 38 39 78.5t16 85.5q0 102-72.26 172-72.27 70-175.5 70Zm-.24-27q92 0 156-64.5T581-359q0-31-8.5-61T547-477l-26-41 29-51q5-8 2.5-18T542-602l-63-36q-8-5-18-2t-15 11l-29 50h-48q-94 0-161.5 63T140-361q0 92 64.5 157T361-139Zm387-475v-28h68v28h-68ZM586-788v-68h28v68h-28Zm162 40-19-19 48-49 19 20-48 48ZM361-359Z"/></svg>`;
+const ICON_CONTROLLER = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor" aria-hidden="true"><path d="M189-186q-51 0-86-35t-35-86q0-8 .5-15t2.5-15l84-336q12-45 48-73t82-28h390q46 0 82 28t48 73l84 336q2 8 3 15.5t1 15.5q0 51-35.5 85.5T771-186q-35 0-64-18.5T662-254l-29-59q-8-17-24-25t-34-8H385q-18 0-34 8t-24 25l-29 59q-15 32-44.5 50T189-186Zm3-28q26 0 48-14t33-37l28-58q12-24 35-37.5t49-13.5h190q27 0 49.5 14.5T660-322l28 57q11 23 33 37t48 14q39 0 67-26.5t28-64.5q0-3-3-25l-84-335q-9-35-37.5-58T675-746H285q-37 0-65.5 23T183-665L99-330q-1 4-3 24 0 39 28.5 65.5T192-214Zm367.5-326.5Q568-549 568-560t-8.5-19.5Q551-588 540-588t-19.5 8.5Q512-571 512-560t8.5 19.5Q529-532 540-532t19.5-8.5Zm80-80Q648-629 648-640t-8.5-19.5Q631-668 620-668t-19.5 8.5Q592-651 592-640t8.5 19.5Q609-612 620-612t19.5-8.5Zm0 160Q648-469 648-480t-8.5-19.5Q631-508 620-508t-19.5 8.5Q592-491 592-480t8.5 19.5Q609-452 620-452t19.5-8.5Zm80-80Q728-549 728-560t-8.5-19.5Q711-588 700-588t-19.5 8.5Q672-571 672-560t8.5 19.5Q689-532 700-532t19.5-8.5ZM350-480q4-4 4-10v-56h56q6 0 10-4t4-10q0-6-4-10t-10-4h-56v-56q0-6-4-10t-10-4q-6 0-10 4t-4 10v56h-56q-6 0-10 4t-4 10q0 6 4 10t10 4h56v56q0 6 4 10t10 4q6 0 10-4Zm130 0Z"/></svg>`;
 const ICON_ABILITIES = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m642-477-79 128q-5 8-15.5 7T535-353l-32-131-301 302q-4 4-9.5 4.5T182-182q-5-5-5-10t5-10l302-302-130-32q-10-2-11.5-12t6.5-15l128-79-11-150q-1-10 7.5-15t16.5 2l115 97 139-57q9-4 16.5 3.5T764-745l-56 139 97 115q7 8 2.5 17t-14.5 8l-151-11ZM183-734q-5-5-5-11t5-11l21-21q5-5 11-5t11 5l21 21q5 5 5 11t-5 11l-21 21q-5 5-11 5t-11-5l-21-21Zm372 344 72-116 136 10-88-105 51-126-126 51-105-88 10 136-115 72 132 33 33 133Zm179 207-21-21q-5-5-5-11t5-11l21-21q5-5 11-5t11 5l21 21q5 5 5 11t-5 11l-21 21q-5 5-11 5t-11-5ZM577-577Z"/></svg>`;
 
 const HUD_FONT_OPTIONS = [
@@ -635,6 +636,15 @@ function btn(label, cls, onClick) {
   return b;
 }
 
+function readout(label, id, value = 'None') {
+  const out = document.createElement('span');
+  out.className = 'sb-readout';
+  out.id = id;
+  out.textContent = value;
+  out.title = value;
+  return row(label, out);
+}
+
 // ── Section builders ───────────────────────────────────────────────────────────
 
 function buildCamera(body) {
@@ -875,6 +885,23 @@ function buildDestruction(body) {
   body.appendChild(slider({ key: 'enemyDestructionParticleSpeed', label: 'Particle Speed', min: 0.1, max: 6, step: 0.05, dec: 2 }));
   body.appendChild(slider({ key: 'enemyDestructionParticleGlow', label: 'Particle Glow', min: 0, max: 24, step: 0.5, dec: 1 }));
   body.appendChild(toggle('Physics', 'enemyDestructionPhysics'));
+}
+
+function buildController(body) {
+  body.appendChild(toggle('Controller Enabled', 'controllerEnabled'));
+  body.appendChild(readout('Connected', 'controller-status', state.controllerConnected ? state.controllerName : 'None'));
+  body.appendChild(slider({ key: 'controllerMoveDeadzone', label: 'Move Deadzone', min: 0, max: 0.6, step: 0.01, dec: 2 }));
+  body.appendChild(slider({ key: 'controllerLookDeadzone', label: 'Look Deadzone', min: 0, max: 0.6, step: 0.01, dec: 2 }));
+  body.appendChild(slider({ key: 'controllerLookSensitivityX', label: 'Look Sens. X', min: 0.1, max: 10, step: 0.1, dec: 1 }));
+  body.appendChild(slider({ key: 'controllerLookSensitivityY', label: 'Look Sens. Y', min: 0.1, max: 10, step: 0.1, dec: 1 }));
+  body.appendChild(toggle('Invert Y', 'controllerInvertY'));
+  body.appendChild(slider({ key: 'controllerFireThreshold', label: 'Fire Threshold', min: 0.05, max: 1, step: 0.05, dec: 2 }));
+  body.appendChild(toggle('Vibration', 'controllerVibration'));
+  body.appendChild(subhdr('DualSense Layout'));
+  const map = document.createElement('div');
+  map.className = 'sb-help';
+  map.textContent = 'Left Stick move · Right Stick camera · R2 fire · Cross jump · Circle dash · L1/L2 bullet time · Options sidebar';
+  body.appendChild(map);
 }
 
 function buildAbilities(body) {
@@ -1189,6 +1216,7 @@ function rebuildPanel() {
     [ICON_CAMERA, 'Camera', buildCamera],
     [ICON_PLAYER, 'Player', buildPlayer],
     [ICON_ABILITIES, 'Abilities', buildAbilities],
+    [ICON_CONTROLLER, 'Controller', buildController],
     [ICON_SHIELD, 'Shield', buildShield],
     [ICON_LIGHT, 'Lighting', buildLighting],
     [ICON_SCENE, 'Scene', buildScene],
@@ -1205,7 +1233,8 @@ function rebuildPanel() {
   // Required gameplay-test sections. This failsafe keeps these controls visible
   // even if a future edit accidentally removes them from the main section list.
   const requiredSections = [
-    [ICON_ABILITIES, 'Abilities', buildAbilities, 'Shield'],
+    [ICON_ABILITIES, 'Abilities', buildAbilities, 'Controller'],
+    [ICON_CONTROLLER, 'Controller', buildController, 'Shield'],
     [ICON_DESTRUCTION, 'Destruction', buildDestruction, 'Weapons'],
   ];
 
