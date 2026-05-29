@@ -2,20 +2,38 @@
 // Screen-aimed player laser gun. The visual follows the two-mesh laser pattern:
 // a bright white core plus a larger additive glow shell whose colour is exposed
 // through the Weapons sidebar controls.
+//
+// Aiming uses a two-stage approach (per AIMING.md):
+//   Stage 1: camera ray through reticle centre → resolve world aim target
+//            (enemy aim volumes first, then fallback to far point)
+//   Stage 2: projectile spawns at muzzle, then aims toward that resolved target
+// This keeps shots accurate at all distances regardless of camera offset.
 import * as THREE from 'three';
 import { state } from './state.js';
 import { scene, camera } from './renderer.js';
 import { playerGroup } from './player.js';
-import { damageEnemiesAt } from './enemies.js';
+import { damageEnemiesAt, getEnemies } from './enemies.js';
 
 const _up = new THREE.Vector3(0, 1, 0);
-const _aimDir = new THREE.Vector3();
 const _spawnPos = new THREE.Vector3();
 const _tmpQuat = new THREE.Quaternion();
-const _aimNdc = new THREE.Vector2();
-const _raycaster = new THREE.Raycaster();
-const _aimPoint = new THREE.Vector3();
+const _aimRaycaster = new THREE.Raycaster();
+const _aimNdc = new THREE.Vector2(0, 0); // always reticle centre
 
+// ── Aim constants (from AIMING.md) ───────────────────────────────────────────
+const AIM_FALLBACK_DISTANCE = 1000;
+const AIM_ENEMY_RADIUS_PADDING = 0.15;
+const AIM_MIN_TARGET_DISTANCE = 0.75;
+
+// ── Aim result cached each frame — shared between firing and reticle hover ───
+// Stored outside state so Three.js objects don't pollute serialisable state.
+export const aimResult = {
+  type: 'fallback',       // 'enemy' | 'fallback'
+  point: new THREE.Vector3(),
+  enemy: null,
+};
+
+// ── Laser pool ────────────────────────────────────────────────────────────────
 const _laserGeo = new THREE.CapsuleGeometry(0.055, 0.7, 6, 12);
 const _laserCoreMat = new THREE.MeshStandardMaterial({
   color: 0xffffff,
@@ -80,31 +98,88 @@ function releaseLaser(laser) {
   _laserPool.push(laser);
 }
 
-function getAimDirection(target, spawnPos, range) {
-  // The reticle is fixed at the exact centre of the viewport, especially during
-  // pointer-lock mouse look. Always fire through that centre ray rather than a
-  // stale/unlocked mouse cursor position so lasers line up with the visible HUD.
-  camera.updateMatrixWorld(true);
-  _aimNdc.set(0, 0);
-  _raycaster.setFromCamera(_aimNdc, camera);
+// ── Two-stage aim resolver (AIMING.md) ───────────────────────────────────────
 
-  const targetDistance = Math.max(1, Number(range) || 1);
-  _aimPoint.copy(_raycaster.ray.origin).addScaledVector(_raycaster.ray.direction, targetDistance);
-  target.copy(_aimPoint).sub(spawnPos);
+/**
+ * Test a ray against a sphere centred at the enemy's visual mid-point.
+ * Returns { point, distance } or null.
+ */
+function intersectEnemyAimVolume(rayOrigin, rayDir, enemy) {
+  if (!enemy || !enemy.group) return null;
 
-  if (target.lengthSq() < 0.0001) {
-    target.copy(_raycaster.ray.direction);
-  }
+  const center = enemy.group.position.clone();
+  // Aim at visual centre, not the floor origin.
+  const bodyHeight = (enemy.radius * 2 + (enemy.sizeMult || 1) * 1.2);
+  center.y += bodyHeight * 0.5;
 
-  if (target.lengthSq() < 0.0001) {
-    camera.getWorldDirection(target);
-  }
+  const radius = (enemy.radius || 0.4) + AIM_ENEMY_RADIUS_PADDING;
 
-  return target.normalize();
+  const toCenter = center.clone().sub(rayOrigin);
+  const proj = toCenter.dot(rayDir);
+  if (proj < 0) return null;
+
+  const closest = rayOrigin.clone().addScaledVector(rayDir, proj);
+  const miss = closest.distanceTo(center);
+  if (miss > radius) return null;
+
+  const offset = Math.sqrt(Math.max(0, radius * radius - miss * miss));
+  const hitDist = Math.max(0, proj - offset);
+
+  return {
+    point: rayOrigin.clone().addScaledVector(rayDir, hitDist),
+    distance: hitDist,
+  };
 }
 
+/**
+ * Stage 1: cast camera ray through reticle centre, test enemy volumes,
+ * fall back to far point. Updates the shared `aimResult` object.
+ * Called once per frame from loop.js so both hover colour and firing use it.
+ */
+export function resolveAimTarget() {
+  camera.updateMatrixWorld(true);
+  _aimNdc.set(0, 0);
+  _aimRaycaster.setFromCamera(_aimNdc, camera);
 
-// Shoot sound — blaster1.wav, pooled single element with slight pitch variation.
+  const rayOrigin = _aimRaycaster.ray.origin;
+  const rayDir    = _aimRaycaster.ray.direction;
+
+  let bestHit = null;
+
+  for (const enemy of getEnemies()) {
+    if (!enemy || !enemy.group) continue;
+    const hit = intersectEnemyAimVolume(rayOrigin, rayDir, enemy);
+    if (!hit) continue;
+    if (!bestHit || hit.distance < bestHit.distance) {
+      bestHit = { type: 'enemy', enemy, point: hit.point, distance: hit.distance };
+    }
+  }
+
+  if (bestHit) {
+    aimResult.type  = 'enemy';
+    aimResult.enemy = bestHit.enemy;
+    aimResult.point.copy(bestHit.point);
+  } else {
+    aimResult.type  = 'fallback';
+    aimResult.enemy = null;
+    aimResult.point.copy(rayOrigin).addScaledVector(rayDir, AIM_FALLBACK_DISTANCE);
+  }
+}
+
+/**
+ * Stage 2: given the resolved aim target and the projectile spawn position,
+ * return the normalised direction the projectile should travel.
+ */
+function getProjectileDirection(spawnPos, targetPoint, out) {
+  out.copy(targetPoint).sub(spawnPos);
+  if (out.lengthSq() < 0.0001) {
+    // Target is essentially at the muzzle — fall back to camera forward.
+    camera.getWorldDirection(out);
+  }
+  return out.normalize();
+}
+
+// ── Shoot sound ───────────────────────────────────────────────────────────────
 let _blasterEl = null;
 function playShootSound() {
   const vol = Math.max(0, Math.min(1,
@@ -121,32 +196,36 @@ function playShootSound() {
   audio.play().catch(() => {});
 }
 
+// ── Firing ────────────────────────────────────────────────────────────────────
+const _fireDir = new THREE.Vector3();
+
 function fireLaser() {
   const p = state.params;
   const speed = Math.max(1, Number(p.laserProjectileSpeed) || 22);
-  const range = Math.max(1, Number(p.laserRange) || 42);
   const laser = acquireLaser();
 
+  // Muzzle position: player centre + upward offset + slight forward push
   _spawnPos.copy(playerGroup.position);
   _spawnPos.y += Math.max(0.55, (Number(p.playerRadius) || 0.4) + (Number(p.playerLength) || 1.2) * 0.55);
 
-  const dir = getAimDirection(_aimDir, _spawnPos, range).clone();
-  _spawnPos.addScaledVector(dir, Math.max(0.75, (Number(p.playerRadius) || 0.4) + 0.65));
+  // Stage 2: aim from muzzle toward the pre-resolved aim target point
+  const targetPoint = aimResult.point;
+  getProjectileDirection(_spawnPos, targetPoint, _fireDir);
 
-  // Re-aim after offsetting the spawn point so the projectile path still
-  // converges on the centre-reticle ray instead of drifting due to muzzle offset.
-  dir.copy(_aimPoint).sub(_spawnPos);
-  if (dir.lengthSq() < 0.0001) dir.copy(_raycaster.ray.direction);
-  dir.normalize();
+  // Push muzzle slightly forward along fire direction so the laser doesn't spawn inside the player
+  _spawnPos.addScaledVector(_fireDir, Math.max(0.75, (Number(p.playerRadius) || 0.4) + 0.65));
 
-  _tmpQuat.setFromUnitVectors(_up, dir);
+  // Re-resolve direction from pushed muzzle → same target (avoids capsule-edge drift)
+  getProjectileDirection(_spawnPos, targetPoint, _fireDir);
+
+  _tmpQuat.setFromUnitVectors(_up, _fireDir);
   laser.group.position.copy(_spawnPos);
   laser.group.quaternion.copy(_tmpQuat);
   laser.group.visible = true;
   laser.glow.visible = !!p.laserBloom;
-  laser.dir.copy(dir);
+  laser.dir.copy(_fireDir);
   laser.distance = 0;
-  laser.maxRange = Math.max(1, _spawnPos.distanceTo(_aimPoint));
+  laser.maxRange = Math.max(1, _spawnPos.distanceTo(targetPoint));
   laser.speed = speed;
 
   _activeLasers.push(laser);

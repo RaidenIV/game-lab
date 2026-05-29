@@ -460,7 +460,7 @@ body.sb-resizing { cursor: ew-resize; user-select: none; }
   opacity: 0;
   color: rgba(255,255,255,0.94);
   font-family: 'Square 721 Extended Bold Local', 'Michroma', 'Arial Black', sans-serif;
-  font-size: clamp(22px, 3.5vw, 56px);
+  font-size: clamp(11px, 1.75vw, 28px);
   font-weight: 700;
   letter-spacing: 0.18em;
   line-height: 1;
@@ -478,10 +478,12 @@ body.is-paused * {
   cursor: default !important;
 }
 
-#target-reticle.reticle-enemy-hover {
+#target-reticle.reticle-enemy-hover,
+#target-reticle.is-targeting-enemy {
   --reticle-color: #ff2020 !important;
 }
-#target-reticle.reticle-enemy-hover .reticle-center-dot {
+#target-reticle.reticle-enemy-hover .reticle-center-dot,
+#target-reticle.is-targeting-enemy .reticle-center-dot {
   background: #ff2020;
 }
 

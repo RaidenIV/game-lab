@@ -190,6 +190,7 @@ document.addEventListener('pointerlockchange', () => {
 
 window.addEventListener('keydown', e => {
   if (e.key === 'Tab') { e.preventDefault(); _togglePanel?.(); return; }
+  if (e.key === 'Escape') { e.preventDefault(); _togglePanel?.(); return; }
   if (isTypingTarget(e.target)) return;
 
   if (state.paused) return;

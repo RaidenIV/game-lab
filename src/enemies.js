@@ -238,6 +238,11 @@ export function getEnemyMeshes() {
   return enemies.map(e => e.mesh);
 }
 
+// Returns the full active enemy list for aim volume testing.
+export function getEnemies() {
+  return enemies;
+}
+
 export function clearEnemies() {
   while (enemies.length) disposeEnemy(enemies.pop());
   while (enemyBullets.length) disposeEnemyBullet(enemyBullets.pop());

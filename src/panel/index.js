@@ -28,6 +28,7 @@ const ICON_HUD = `<svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox=
 const ICON_CONTROLLER = `<svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="currentColor"><path d="M189-186q-51 0-86-35t-35-86q0-8 .5-15t2.5-15l84-336q12-45 48-73t82-28h390q46 0 82 28t48 73l84 336q2 8 3 15.5t1 15.5q0 51-35.5 85.5T771-186q-35 0-64-18.5T662-254l-29-59q-8-17-24-25t-34-8H385q-18 0-34 8t-24 25l-29 59q-15 32-44.5 50T189-186Zm3-28q26 0 48-14t33-37l28-58q12-24 35-37.5t49-13.5h190q27 0 49.5 14.5T660-322l28 57q11 23 33 37t48 14q39 0 67-26.5t28-64.5q0-3-3-25l-84-335q-9-35-37.5-58T675-746H285q-37 0-65.5 23T183-665L99-330q-1 4-3 24 0 39 28.5 65.5T192-214Zm367.5-326.5Q568-549 568-560t-8.5-19.5Q551-588 540-588t-19.5 8.5Q512-571 512-560t8.5 19.5Q529-532 540-532t19.5-8.5Zm80-80Q648-629 648-640t-8.5-19.5Q631-668 620-668t-19.5 8.5Q592-651 592-640t8.5 19.5Q609-612 620-612t19.5-8.5Zm0 160Q648-469 648-480t-8.5-19.5Q631-508 620-508t-19.5 8.5Q592-491 592-480t8.5 19.5Q609-452 620-452t19.5-8.5Zm80-80Q728-549 728-560t-8.5-19.5Q711-588 700-588t-19.5 8.5Q672-571 672-560t8.5 19.5Q689-532 700-532t19.5-8.5ZM350-480q4-4 4-10v-56h56q6 0 10-4t4-10q0-6-4-10t-10-4h-56v-56q0-6-4-10t-10-4q-6 0-10 4t-4 10v56h-56q-6 0-10 4t-4 10q0 6 4 10t10 4h56v56q0 6 4 10t10 4q6 0 10-4Zm130 0Z"/></svg>`;
 
 const ICON_SOUND = `<svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="currentColor"><path d="M564-195v-30q81-30 130.5-100T744-481q0-86-49.5-156T564-737v-30q92 33 150 111t58 175q0 97-58 175T564-195ZM188-412v-136h130l126-126v388L318-412H188Zm376 56v-250q30 22 45 55.5t15 70.5q0 37-15.5 69.5T564-356ZM416-606l-86 86H216v80h114l86 86v-252ZM316-480Z"/></svg>`;
+const ICON_ALLIES = `<svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px" fill="currentColor"><path d="M52-262v-26q0-35 38-58.5t97-23.5q8 0 18 1t22 3q-8 15-11.5 30.5T212-305v43H52Zm240 0v-39q0-21.84 13-39.92Q318-359 344-372t60-19.5q34-6.5 75.6-6.5 42.4 0 76.4 6.5 34 6.5 60 19.5t39 31.08q13 18.08 13 39.92v39H292Zm456 0v-42.7q0-17.08-3.5-32.19T734-366q13-2 22.5-3t17.5-1q59 0 96.5 23.5T908-288v26H748Zm-428-28h320v-11q0-31-44-50t-116-19q-72 0-116 19t-44 50v11ZM186.73-407q-20.73 0-35.23-14.69Q137-436.38 137-457q0-20 14.69-34.5T187-506q20 0 35 14.5t15 34.8q0 19.7-14.45 34.7-14.45 15-35.82 15ZM774-407q-20 0-35-15t-15-34.7q0-20.3 15-34.8 15-14.5 35.19-14.5 20.81 0 35.31 14.5Q824-477 824-457q0 20.62-14.37 35.31Q795.25-407 774-407Zm-293.65-21Q448-428 425-450.75T402-506q0-33.15 22.75-55.58Q447.5-584 480-584q33.15 0 55.58 22.32Q558-539.35 558-506.35 558-474 535.68-451q-22.33 23-55.33 23Zm.15-28q20.5 0 35-15t14.5-35.5q0-20.5-14.37-35Q501.25-556 480-556q-20 0-35 14.37-15 14.38-15 35.63 0 20 15 35t35.5 15Zm-.5 166Zm0-216Z"/></svg>`;
 const PRESET_SETTINGS = [
   { key: 'g3', label: 'G3', path: './presets/G3.json', data: {
   "cameraMode": "third2",
@@ -1077,6 +1078,15 @@ function buildController(body) {
 }
 
 
+function buildAllies(body) {
+  body.appendChild(subhdr('Coming Soon'));
+  const note = document.createElement('div');
+  note.style.cssText = 'padding:8px 4px;font-size:11px;color:var(--sb-muted);line-height:1.5;';
+  note.textContent = 'Ally configuration will appear here.';
+  body.appendChild(note);
+}
+
+
 // ── JSON export / import / reset ───────────────────────────────────────────────
 
 // Export serialises state.params and triggers a file download.
@@ -1347,6 +1357,7 @@ function rebuildPanel() {
     [ICON_WEAPONS, 'Weapons', buildWeapons],
     [ICON_SOUND, 'Sound', buildSound],
     [ICON_CONTROLLER, 'Controller', buildController],
+    [ICON_ALLIES, 'Allies', buildAllies],
   ];
 
   sectionDefs.forEach(([icon, title, buildFn]) => {
@@ -1438,6 +1449,14 @@ function syncPauseToSidebar() {
   state.paused = !state.panelMinimized;
   document.body.classList.toggle('is-paused', state.paused);
   clearGameplayInput();
+  // Pause or resume ambience when game pauses/unpauses
+  if (_ambienceEl) {
+    if (state.paused) {
+      _ambienceEl.pause();
+    } else if (state.params.soundSfx_ambience > 0 && !state.params.soundMuted) {
+      _ambienceEl.play().catch(() => {});
+    }
+  }
 }
 
 function setPanelMinimized(minimized) {
