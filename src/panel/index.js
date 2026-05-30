@@ -1731,6 +1731,7 @@ function applyAllParams() {
   setFloorVisible(p.showFloor);
   setGridVisible(p.showGrid);
   applyHudSettings();
+  applyTagSettings();
 }
 
 // ── Build / rebuild panel DOM ──────────────────────────────────────────────────

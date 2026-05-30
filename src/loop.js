@@ -29,7 +29,8 @@ const _tagIconCx = 480, _tagIconCy = -431, _tagIconW = 504, _tagIconH = 438;
 function drawTagIcon(ctx, x, y, iconSize, color) {
   const sc = iconSize / Math.max(_tagIconW, _tagIconH);
   ctx.save();
-  // Rotate 180deg (upside-down = pointing down toward enemy)
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur = 4;
   ctx.translate(x, y);
   ctx.rotate(Math.PI);
   ctx.scale(sc, sc);
@@ -104,11 +105,15 @@ function updateRadar() {
       // Tagged: draw the tag icon (upside-down triangle pointing at enemy)
       drawTagIcon(ctx, ex, ey, 10, tagColor);
     } else {
-      // Untagged: simple red blip
+      // Untagged: simple red blip with shadow for legibility
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur = 4;
       ctx.fillStyle = enemyColor;
       ctx.beginPath();
       ctx.arc(ex, ey, 2.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
   }
 
