@@ -154,7 +154,8 @@ export const state = {
       "tagColor": "#ff2828",
       "tagSize": 22,
       "tagDwellTime": 1.2,
-      "tagThickness": 3,
+      "tagThickness": 2,
+      "tagBloom": 3,
       "tagShadow": 4,
 
       // Sound

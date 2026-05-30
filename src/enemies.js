@@ -454,7 +454,11 @@ function colorToFilter(hex) {
 }
 
 function getTagThickness() {
-  return Math.max(0, Math.min(20, Number(state.params.tagThickness) ?? 3));
+  return Math.max(0, Math.min(12, Number(state.params.tagThickness) ?? 2));
+}
+
+function getTagBloom() {
+  return Math.max(0, Math.min(20, Number(state.params.tagBloom) ?? 3));
 }
 
 function getTagShadow() {
@@ -463,14 +467,30 @@ function getTagShadow() {
 
 function buildTagFilter(color) {
   const thickness = getTagThickness();
+  const bloom     = getTagBloom();
   const shadow    = getTagShadow();
   const parts = [];
-  // Outline: multiple zero-offset drop-shadows at the thickness radius create a visible stroke
+  // Thickness = hard outline: zero-blur drop-shadows stacked in 4 diagonal directions.
+  // Zero blur means no spread/glow — the shadow is painted as a hard copy of the icon shape.
+  // Stacking in N/S/E/W gives a uniform solid stroke effect.
   if (thickness > 0) {
-    parts.push(`drop-shadow(0 0 ${thickness}px ${color})`);
-    parts.push(`drop-shadow(0 0 ${Math.ceil(thickness * 0.5)}px ${color})`);
+    const t = thickness;
+    parts.push(`drop-shadow( ${t}px  0    0   ${color})`);
+    parts.push(`drop-shadow(-${t}px  0    0   ${color})`);
+    parts.push(`drop-shadow( 0    ${t}px  0   ${color})`);
+    parts.push(`drop-shadow( 0   -${t}px  0   ${color})`);
+    // Diagonal fills to prevent corner gaps
+    parts.push(`drop-shadow( ${t}px  ${t}px 0 ${color})`);
+    parts.push(`drop-shadow(-${t}px -${t}px 0 ${color})`);
+    parts.push(`drop-shadow( ${t}px -${t}px 0 ${color})`);
+    parts.push(`drop-shadow(-${t}px  ${t}px 0 ${color})`);
   }
-  // Shadow: offset dark shadow for depth and legibility
+  // Bloom = soft glow: large-blur drop-shadow centred on the icon
+  if (bloom > 0) {
+    parts.push(`drop-shadow(0 0 ${bloom}px ${color})`);
+    parts.push(`drop-shadow(0 0 ${Math.ceil(bloom * 0.5)}px ${color})`);
+  }
+  // Shadow = offset dark shadow for depth and legibility
   if (shadow > 0) {
     parts.push(`drop-shadow(0 ${Math.ceil(shadow * 0.5)}px ${shadow}px rgba(0,0,0,0.85))`);
   }
