@@ -18,18 +18,22 @@ const _geoFactories = {
   sphere:   () => new THREE.SphereGeometry(0.5, 16, 12),
   wall:     () => new THREE.BoxGeometry(4, 2, 0.25),
   ramp: () => {
+    // Indexed triangular-prism ramp. Shared vertices keep the preview outline from
+    // drawing diagonal triangulation lines across each face.
     const g = new THREE.BufferGeometry();
     const v = new Float32Array([
-      -2,0,-1,  2,0,-1,  2,0,1,
-      -2,0,-1,  2,0,1,  -2,0,1,
-      -2,0,-1,  -2,2,1,  2,2,1,
-      -2,0,-1,   2,2,1,  2,0,-1,
-      -2,0,-1,  -2,0,1, -2,2,1,
-       2,0,-1,   2,2,1,  2,0,1,
-      -2,0,1,   2,0,1,   2,2,1,
-      -2,0,1,   2,2,1,  -2,2,1,
+      -2, 0, -1,   2, 0, -1,
+      -2, 0,  1,   2, 0,  1,
+      -2, 2,  1,   2, 2,  1,
     ]);
     g.setAttribute('position', new THREE.BufferAttribute(v, 3));
+    g.setIndex([
+      0, 3, 1,  0, 2, 3,       // bottom
+      0, 1, 5,  0, 5, 4,       // sloped walkable face
+      0, 4, 2,                 // left triangular side
+      1, 3, 5,                 // right triangular side
+      2, 4, 5,  2, 5, 3,       // high vertical face
+    ]);
     g.computeVertexNormals();
     return g;
   },
@@ -69,7 +73,8 @@ function getBaseClipHeight(asset) {
 function normalizeScaleValue(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 1;
-  return Math.min(6, Math.max(0.25, n));
+  // Object transforms snap to half-grid increments only: 0.5, 1.0, 1.5, etc.
+  return Math.min(6, Math.max(0.5, Math.round(n * 2) / 2));
 }
 
 function getCurrentPlacerScale() {
@@ -226,18 +231,28 @@ function makeBounds(assetId, x, z, ry, scaleSource = null, y = 0) {
   };
 }
 
-function isFootprintOccupied(sx, sz, assetId, ry, scaleSource = null) {
+function getStackBaseHeight(sx, sz, assetId, ry, scaleSource = null) {
   const asset = getAsset(assetId);
   const scale = getPlacedScale(scaleSource);
-  const y = Number(asset?.yOffset ?? 0.5) * scale.y;
-  const candidate = makeBounds(assetId, sx, sz, ry, scale, y);
+  const candidate = makeBounds(assetId, sx, sz, ry, scale, Number(asset?.yOffset ?? 0.5) * scale.y);
   const list = state.params.placedObjects || [];
+  let baseY = 0;
+
   for (const obj of list) {
     const bounds = placedObjectBounds(obj);
     if (bounds.asset.clip === false) continue;
-    if (boundsOverlap(candidate, bounds)) return true;
+    if (!boundsOverlap(candidate, bounds)) continue;
+    baseY = Math.max(baseY, bounds.maxY);
   }
-  return false;
+
+  return baseY;
+}
+
+function getPlacementY(sx, sz, assetId, ry, scaleSource = null) {
+  const asset = getAsset(assetId);
+  const scale = getPlacedScale(scaleSource);
+  const baseY = getStackBaseHeight(sx, sz, assetId, ry, scale);
+  return baseY + Number(asset?.yOffset ?? 0.5) * scale.y;
 }
 
 function placedObjectBounds(obj) {
@@ -372,10 +387,16 @@ export function resolveCircleAgainstPlacedObjects(position, radius = 0.45, passe
       if (bounds.asset.clip === false) continue;
       if (options.walkableRamps === true && bounds.asset.walkable === true) continue;
       if (Number.isFinite(Number(options.footY)) && bounds.asset.walkable !== true) {
+        const footY = Number(options.footY);
         const local = localPointForObject(obj, position.x, position.z);
-        if (isInsideLocalFootprint(local, bounds.asset, r, obj)
-          && canStandOnObjectTop(options.footY, bounds.maxY, options.stepUp, options.stepDown)) {
-          continue;
+        if (isInsideLocalFootprint(local, bounds.asset, r, obj)) {
+          // Once the capsule feet are on or above a top face, stop treating that
+          // object as a side blocker. This prevents jumping/landing on placed
+          // objects from pushing the capsule sideways or jittering at the edge.
+          if (footY >= bounds.maxY - 0.06) continue;
+          if (options.grounded === true && canStandOnObjectTop(footY, bounds.maxY, options.stepUp, options.stepDown)) {
+            continue;
+          }
         }
       }
       if (resolveCircleAgainstBounds(position, r, bounds)) {
@@ -418,9 +439,9 @@ const _ghostBlockedMat = new THREE.MeshBasicMaterial({
   color: 0xff4444, transparent: true, opacity: 0.45,
   depthWrite: false,
 });
-const _ghostWireMat = new THREE.MeshBasicMaterial({
+const _ghostWireMat = new THREE.LineBasicMaterial({
   color: 0x88ddff, transparent: true, opacity: 0.8,
-  wireframe: true, depthWrite: false,
+  depthWrite: false,
 });
 
 let _ghostMesh      = null;
@@ -434,9 +455,10 @@ const _hitPoint     = new THREE.Vector3();
 function rebuildGhost(assetId) {
   if (_ghostMesh) { scene.remove(_ghostMesh); _ghostMesh.geometry.dispose(); _ghostMesh = null; }
   if (_ghostWire) { scene.remove(_ghostWire); _ghostWire.geometry.dispose(); _ghostWire = null; }
-  const geo   = makeGeo(assetId);
-  _ghostMesh  = new THREE.Mesh(geo, _ghostMat);
-  _ghostWire  = new THREE.Mesh(geo, _ghostWireMat);
+  const geo = makeGeo(assetId);
+  const edgeGeo = new THREE.EdgesGeometry(geo, 1);
+  _ghostMesh = new THREE.Mesh(geo, _ghostMat);
+  _ghostWire = new THREE.LineSegments(edgeGeo, _ghostWireMat);
   _ghostMesh.frustumCulled = false;
   _ghostWire.frustumCulled = false;
   _ghostMesh.renderOrder = 10;
@@ -492,15 +514,23 @@ function removePlacedObjectByAim() {
 function removePlacedObjectAtFootprint(sx, sz, assetId, ry, scaleSource = null) {
   const asset = getAsset(assetId);
   const scale = getPlacedScale(scaleSource);
-  const y = Number(asset?.yOffset ?? 0.5) * scale.y;
+  const y = getPlacementY(sx, sz, assetId, ry, scale);
   const targetBounds = makeBounds(assetId, sx, sz, ry, scale, y);
   const list = state.params.placedObjects || [];
-  for (let i = list.length - 1; i >= 0; i--) {
+  let bestIndex = -1;
+  let bestTop = -Infinity;
+
+  for (let i = 0; i < list.length; i++) {
     const obj = list[i];
     const bounds = placedObjectBounds(obj);
-    if (boundsOverlap(targetBounds, bounds) && _placedMeshes[i]) return removePlacedMesh(_placedMeshes[i]);
+    if (!boundsOverlap(targetBounds, bounds)) continue;
+    if (bounds.maxY >= bestTop) {
+      bestTop = bounds.maxY;
+      bestIndex = i;
+    }
   }
-  return false;
+
+  return bestIndex >= 0 && _placedMeshes[bestIndex] ? removePlacedMesh(_placedMeshes[bestIndex]) : false;
 }
 
 export function rebuildPlacedObjects() {
@@ -515,6 +545,10 @@ export function rebuildPlacedObjects() {
     const mesh  = new THREE.Mesh(makeGeo(asset.id), materialForAsset(asset, obj));
     mesh.userData.placedObject = obj;
     const scale = getPlacedScale(obj);
+    obj.scaleX = scale.x;
+    obj.scaleY = scale.y;
+    obj.scaleZ = scale.z;
+    if (!Number.isFinite(Number(obj.y))) obj.y = Number(asset?.yOffset ?? 0.5) * scale.y;
     mesh.position.set(obj.x, obj.y, obj.z);
     mesh.rotation.y    = obj.ry ?? 0;
     mesh.scale.set(scale.x, scale.y, scale.z);
@@ -525,16 +559,16 @@ export function rebuildPlacedObjects() {
   }
 }
 
-function placeObject(sx, sz) {
+function placeObject(sx, sz, placementY = null) {
   const assetId = state.params.placerSelectedAsset || 'box';
   const asset   = getAsset(assetId);
   const scale   = getCurrentPlacerScale();
-  const yOff    = (asset.yOffset ?? 0.5) * scale.y;
   const ry      = getCurrentPlacerRotation();
+  const y       = Number.isFinite(Number(placementY)) ? Number(placementY) : getPlacementY(sx, sz, assetId, ry, scale);
 
   const color = resolvePlacedColor(null, asset);
   const placed = {
-    assetId, x: sx, y: yOff, z: sz, ry, color,
+    assetId, x: sx, y, z: sz, ry, color,
     scaleX: scale.x, scaleY: scale.y, scaleZ: scale.z,
   };
   const list = state.params.placedObjects || [];
@@ -543,7 +577,7 @@ function placeObject(sx, sz) {
 
   const mesh = new THREE.Mesh(makeGeo(asset.id), materialForAsset(asset, placed));
   mesh.userData.placedObject = placed;
-  mesh.position.set(sx, yOff, sz);
+  mesh.position.set(sx, y, sz);
   mesh.rotation.y    = ry;
   mesh.scale.set(scale.x, scale.y, scale.z);
   mesh.castShadow    = true;
@@ -644,24 +678,21 @@ export function updatePlacer() {
   const hit = _raycaster.ray.intersectPlane(_floorPlane, _hitPoint);
 
   if (hit) {
-    const asset = getAsset(assetId);
-    const yOff  = (asset.yOffset ?? 0.5) * scale.y;
-
     // Footprint-aware snap: aligns base edges to grid lines
     const { sx, sz } = snapToFootprint(_hitPoint.x, _hitPoint.z, assetId, ry, scale);
+    const placementY = getPlacementY(sx, sz, assetId, ry, scale);
 
-    _ghostMesh.position.set(sx, yOff, sz);
+    _ghostMesh.position.set(sx, placementY, sz);
     _ghostWire.position.copy(_ghostMesh.position);
 
-    const occupied = isFootprintOccupied(sx, sz, assetId, ry, scale);
-    _ghostMesh.material = occupied ? _ghostBlockedMat : _ghostMat;
+    _ghostMesh.material = _ghostMat;
     _ghostMesh.visible  = true;
     _ghostWire.visible  = true;
 
-    if (removePressed && occupied) {
+    if (removePressed) {
       removePlacedObjectAtFootprint(sx, sz, assetId, ry, scale);
-    } else if (state.primaryFire && !_firePrev && !occupied) {
-      placeObject(sx, sz);
+    } else if (state.primaryFire && !_firePrev) {
+      placeObject(sx, sz, placementY);
     }
   } else {
     _ghostMesh.visible = false;

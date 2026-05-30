@@ -592,8 +592,11 @@ function updateJump(delta) {
     state.jumpVelocity -= gravity * delta;
     playerGroup.position.y += state.jumpVelocity * delta;
 
-    if (playerGroup.position.y <= groundHeight) {
-      playerGroup.position.y = groundHeight;
+    // Only land on object tops while descending. This prevents upward jumps near a
+    // crate edge from snapping the capsule onto the top face and jittering.
+    const landingHeight = state.jumpVelocity <= 0 ? getPlayerGroundHeight(0.7, 0.75) : 0;
+    if (state.jumpVelocity <= 0 && playerGroup.position.y <= landingHeight) {
+      playerGroup.position.y = landingHeight;
       state.jumpVelocity = 0;
       state.jumpGrounded = true;
       state.jumpAirJumpsUsed = 0;
@@ -648,6 +651,7 @@ export function updatePlayer(delta, moveForward, moveRight) {
       footY: playerGroup.position.y,
       stepUp: 0.7,
       stepDown: 0.75,
+      grounded: state.jumpGrounded,
     });
     syncPlayerGround(0.7, 0.75);
   }
@@ -662,6 +666,7 @@ export function updatePlayer(delta, moveForward, moveRight) {
       footY: playerGroup.position.y,
       stepUp: 0.7,
       stepDown: 0.75,
+      grounded: state.jumpGrounded,
     });
     syncPlayerGround(0.7, 0.75);
     playerMesh.rotation.z   = state.dashVX * -0.35;

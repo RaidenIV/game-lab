@@ -2757,6 +2757,10 @@ function applyAllParams() {
   setGridVisible(p.showGrid);
   const rotationDeg = ((Math.round((Number(p.placerRotationDeg) || 0) / 90) * 90) % 360 + 360) % 360;
   p.placerRotationDeg = rotationDeg;
+  const snapScale = value => Math.min(6, Math.max(0.5, Math.round((Number(value) || 1) * 2) / 2));
+  p.placerScaleX = snapScale(p.placerScaleX);
+  p.placerScaleY = snapScale(p.placerScaleY);
+  p.placerScaleZ = snapScale(p.placerScaleZ);
   state.placerRotation = THREE.MathUtils.degToRad(rotationDeg);
   applyHudSettings();
   applyTagSettings();
@@ -3008,7 +3012,7 @@ export function initPanel() {
       'cursor:default',
     ].join(';');
 
-    const clampScale = value => Math.min(6, Math.max(0.25, Number(value) || 1));
+    const clampScale = value => Math.min(6, Math.max(0.5, Math.round((Number(value) || 1) * 2) / 2));
     const normalizeDeg = value => ((Math.round((Number(value) || 0) / 90) * 90) % 360 + 360) % 360;
     const syncRotation = deg => {
       const normalized = normalizeDeg(deg);
@@ -3110,9 +3114,9 @@ export function initPanel() {
     };
 
     box.appendChild(makeRotationRow());
-    box.appendChild(makeNumberRow('Width', 'placerScaleX', 0.25, 6, 0.25));
-    box.appendChild(makeNumberRow('Height', 'placerScaleY', 0.25, 6, 0.25));
-    box.appendChild(makeNumberRow('Depth', 'placerScaleZ', 0.25, 6, 0.25));
+    box.appendChild(makeNumberRow('Width', 'placerScaleX', 0.5, 6, 0.5));
+    box.appendChild(makeNumberRow('Height', 'placerScaleY', 0.5, 6, 0.5));
+    box.appendChild(makeNumberRow('Depth', 'placerScaleZ', 0.5, 6, 0.5));
 
     function syncFields() {
       inputs.placerRotationDeg?.apply(state.params.placerRotationDeg ?? THREE.MathUtils.radToDeg(state.placerRotation ?? 0));
