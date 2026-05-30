@@ -364,7 +364,11 @@ export function getWalkablePlacedObjectHeight(position, radius = 0.35, options =
     const rampY = rampSurfaceHeightAt(obj, asset, position.x, position.z, Math.max(r, 0.12), {
       lowEndPadding: r + 0.03,
       sidePadding: 0.12,
-      highEndPadding: 0.02,
+      // Allow a full capsule-radius overlap at the high edge while the
+      // step-height gate below decides whether the player is actually high
+      // enough to stand on/descend the slope. This keeps ground-level rear
+      // contact blocked, but lets the player move down from the top edge.
+      highEndPadding: r + 0.03,
     });
     if (rampY !== null
       && rampY > height
@@ -441,7 +445,10 @@ export function resolveCircleAgainstPlacedObjects(position, radius = 0.45, passe
           const rampY = rampSurfaceHeightAt(obj, bounds.asset, position.x, position.z, r, {
             lowEndPadding: r + 0.03,
             sidePadding: 0.12,
-            highEndPadding: 0.02,
+            // Match the walkable-height query: allow high-edge overlap for
+            // descending from the ramp top, but keep the canStandOnObjectTop
+            // check so low/rear contact still behaves as a blocker.
+            highEndPadding: r + 0.03,
           });
           if (rampY !== null && canStandOnObjectTop(footY, rampY, options.stepUp, options.stepDown)) {
             continue;
