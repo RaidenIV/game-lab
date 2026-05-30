@@ -436,7 +436,8 @@ export function applyShieldSettings() {
   const lineBloom = Math.max(0, Math.min(2, Number(p.shieldLineBloom) ?? 0.5));
   // Line opacity = base opacity * multiplier + lineBloom boost for extra edge glow
   const lineBaseOpacity = glowEnabled ? Math.min(1, opacity * 3.2) : Math.min(1, opacity * 1.9);
-  const lineOpacity = Math.min(1, lineBaseOpacity + lineBloom * opacity);
+  // No upper clamp: AdditiveBlending saturates naturally so values > 1 drive bright rim glow.
+  const lineOpacity = lineBaseOpacity + lineBloom * 2.0;
   shieldLineMat.uniforms.uColor.value.set(color);
   shieldLineMat.uniforms.uOpacity.value = lineOpacity;
   shieldLineMat.uniforms.uFresnelPower.value = Math.max(0.5, fresnelPower - 0.5);
