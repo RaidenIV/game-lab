@@ -164,7 +164,7 @@ const PRESET_SETTINGS = [
   "soundSfx_gameover": 1,
   "soundSfx_victory": 1,
   "soundSfx_ambience": 0.5,
-  "tagHeight": 18
+  "tagHeight": 18,
   "radarBgColor": "#0a1628",
   "radarEnabled": true,
   "radarEnemyColor": "#ff3030",
