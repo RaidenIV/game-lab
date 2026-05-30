@@ -334,6 +334,7 @@ function applyHardEnemyDecollision() {
 const enemies = [];
 const enemyBullets = [];
 const destructionParticles = [];
+const enemyCorpses = [];
 const particlePool = [];
 
 const _enemyGeoCache = new Map();
@@ -686,38 +687,75 @@ export function clearEnemies() {
   while (enemies.length) disposeEnemy(enemies.pop());
   while (enemyBullets.length) disposeEnemyBullet(enemyBullets.pop());
   while (destructionParticles.length) releaseParticle(destructionParticles.pop());
+  while (enemyCorpses.length) disposeEnemyCorpse(enemyCorpses.pop());
+}
+
+const ENEMY_DESTRUCTION_PREFIX = Object.freeze({
+  [ENEMY_TYPE.RUSHER]: 'destructionRusher',
+  [ENEMY_TYPE.ORBITER]: 'destructionOrbiter',
+  [ENEMY_TYPE.TANKER]: 'destructionTanker',
+  [ENEMY_TYPE.SNIPER]: 'destructionSniper',
+  [ENEMY_TYPE.TELEPORTER]: 'destructionTeleporter',
+  [ENEMY_TYPE.SHIELDED]: 'destructionShielded',
+  [ENEMY_TYPE.SPLITTER]: 'destructionSplitter',
+  [ENEMY_TYPE.BOSS]: 'destructionBoss',
+});
+
+function hexToNumber(value, fallback = 0xff1111) {
+  if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value.trim())) {
+    return Number.parseInt(value.trim().slice(1), 16);
+  }
+  return fallback;
+}
+
+function getDestructionParam(prefix, suffix, fallback) {
+  const value = state.params[`${prefix}${suffix}`];
+  return value === undefined || value === null ? fallback : value;
+}
+
+function defaultParticleCountForEnemy(enemy) {
+  const elite = enemy.type === ENEMY_TYPE.SPLITTER || enemy.type === ENEMY_TYPE.BOSS;
+  if (elite) return Number(state.params.enemyDestructionEliteCount ?? 100);
+  return Number(state.params.enemyDestructionParticleCount ?? state.params.enemyDestructionStandardCount ?? 40);
+}
+
+function defaultParticleSizeForEnemy(enemy) {
+  const elite = enemy.type === ENEMY_TYPE.SPLITTER || enemy.type === ENEMY_TYPE.BOSS;
+  if (elite) return Number(state.params.enemyDestructionEliteSize ?? 0.5);
+  return Number(state.params.enemyDestructionParticleSize ?? state.params.enemyDestructionStandardSize ?? 0.32);
+}
+
+function defaultParticleSpeedForEnemy(enemy) {
+  const elite = enemy.type === ENEMY_TYPE.SPLITTER || enemy.type === ENEMY_TYPE.BOSS;
+  if (elite) return Number(state.params.enemyDestructionEliteSpeed ?? 1.75);
+  return Number(state.params.enemyDestructionParticleSpeed ?? state.params.enemyDestructionStandardSpeed ?? 1.25);
+}
+
+function defaultParticleGlowForEnemy(enemy) {
+  const elite = enemy.type === ENEMY_TYPE.SPLITTER || enemy.type === ENEMY_TYPE.BOSS;
+  if (elite) return Number(state.params.enemyDestructionEliteGlow ?? 12);
+  return Number(state.params.enemyDestructionParticleGlow ?? 8);
 }
 
 function getDestructionConfig(enemy) {
-  const p = state.params;
-  const elite = enemy.type === ENEMY_TYPE.SPLITTER || enemy.type === ENEMY_TYPE.BOSS;
-  if (elite) {
-    return {
-      elite,
-      count: Math.max(0, Math.round(Number(p.enemyDestructionEliteCount) || 0)),
-      size: Math.max(0.01, Number(p.enemyDestructionEliteSize) || 0.5),
-      speed: Math.max(0.01, Number(p.enemyDestructionEliteSpeed) || 1.75),
-      glow: Math.max(0, Number(p.enemyDestructionEliteGlow) || 0),
-      colors: [enemy.def.color, enemy.def.color, enemy.def.color, 0xffffff, 0xffee88],
-    };
-  }
+  const prefix = ENEMY_DESTRUCTION_PREFIX[enemy.type] || ENEMY_DESTRUCTION_PREFIX[ENEMY_TYPE.RUSHER];
+  const fallbackColor = enemy.def?.color ?? 0xff1111;
   return {
-    elite,
-    count: Math.max(0, Math.round(Number(p.enemyDestructionStandardCount) || 0)),
-    size: Math.max(0.01, Number(p.enemyDestructionStandardSize) || 0.25),
-    speed: Math.max(0.01, Number(p.enemyDestructionStandardSpeed) || 1),
-    glow: 0,
-    colors: [0xcc0000, 0xaa0000, 0xdd0000, 0x880000, 0xff1111, 0xbb0000],
+    count: Math.max(0, Math.round(Number(getDestructionParam(prefix, 'ParticleCount', defaultParticleCountForEnemy(enemy))) || 0)),
+    size: Math.max(0.01, Number(getDestructionParam(prefix, 'ParticleSize', defaultParticleSizeForEnemy(enemy))) || 0.32),
+    speed: Math.max(0.01, Number(getDestructionParam(prefix, 'ParticleSpeed', defaultParticleSpeedForEnemy(enemy))) || 1.25),
+    glow: Math.max(0, Number(getDestructionParam(prefix, 'ParticleGlow', defaultParticleGlowForEnemy(enemy))) || 0),
+    color: hexToNumber(getDestructionParam(prefix, 'Color', `#${fallbackColor.toString(16).padStart(6, '0')}`), fallbackColor),
+    physics: getDestructionParam(prefix, 'Physics', state.params.enemyDestructionPhysics === false ? 'ethereal' : 'gravity') === 'ethereal' ? 'ethereal' : 'gravity',
+    despawnTime: Math.max(0.1, Number(getDestructionParam(prefix, 'DespawnTime', 1)) || 1),
   };
 }
 
-function spawnDestructionParticles(enemy) {
+function spawnDestructionParticles(enemy, cfg = getDestructionConfig(enemy)) {
   if (state.params.enemyDestructionEnabled === false) return;
-  const cfg = getDestructionConfig(enemy);
   if (cfg.count <= 0) return;
   for (let i = 0; i < cfg.count; i++) {
-    const color = cfg.colors[Math.floor(Math.random() * cfg.colors.length)];
-    const mesh = acquireParticle(color);
+    const mesh = acquireParticle(cfg.color);
     const baseRadius = (0.06 + Math.random() * 0.12) * cfg.size;
     const yaw = Math.random() * Math.PI * 2;
     const pitch = (Math.random() - 0.5) * Math.PI;
@@ -729,9 +767,9 @@ function spawnDestructionParticles(enemy) {
     destructionParticles.push({
       mesh, baseRadius,
       vx: Math.cos(yaw) * Math.cos(pitch) * speed,
-      vy: Math.sin(pitch) * speed + 2 * cfg.speed,
+      vy: Math.sin(pitch) * speed + (cfg.physics === 'gravity' ? 2 * cfg.speed : 0.7 * cfg.speed),
       vz: Math.sin(yaw) * Math.cos(pitch) * speed,
-      life: maxLife, maxLife, glowCap: cfg.glow,
+      life: maxLife, maxLife, glowCap: cfg.glow, physics: cfg.physics,
     });
   }
 }
@@ -748,7 +786,17 @@ function updateDestructionParticles(delta) {
     particle.mesh.position.x += particle.vx * delta;
     particle.mesh.position.y += particle.vy * delta;
     particle.mesh.position.z += particle.vz * delta;
-    particle.vy -= PARTICLE_GRAVITY * delta;
+    if (particle.physics === 'gravity') {
+      particle.vy -= PARTICLE_GRAVITY * delta;
+      if (particle.mesh.position.y < 0.035) {
+        particle.mesh.position.y = 0.035;
+        particle.vy = Math.abs(particle.vy) * 0.22;
+        particle.vx *= 0.84;
+        particle.vz *= 0.84;
+      }
+    } else {
+      particle.vy += 0.15 * delta;
+    }
     const t = clamp(particle.life / particle.maxLife, 0, 1);
     particle.mesh.scale.setScalar(Math.max(0.001, t * 1.2 * particle.baseRadius));
     particle.mesh.material.opacity = t;
@@ -756,8 +804,77 @@ function updateDestructionParticles(delta) {
   }
 }
 
+function spawnEnemyCorpse(enemy, cfg = getDestructionConfig(enemy)) {
+  const mesh = new THREE.Mesh(getEnemyGeometry(enemy.sizeMult), enemy.material.clone());
+  mesh.name = 'EnemyPhysicsCorpse';
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.position.copy(enemy.group.position);
+  mesh.position.y += enemy.mesh.position.y;
+  mesh.quaternion.copy(enemy.group.quaternion);
+  scene.add(mesh);
+  const yaw = Math.random() * Math.PI * 2;
+  const speed = (1.4 + Math.random() * 2.6) * Math.max(0.3, cfg.speed);
+  enemyCorpses.push({
+    mesh,
+    vx: Math.cos(yaw) * speed,
+    vy: cfg.physics === 'gravity' ? 2.5 + Math.random() * 2.5 : 0.4 + Math.random() * 0.8,
+    vz: Math.sin(yaw) * speed,
+    rx: (Math.random() - 0.5) * 7,
+    ry: (Math.random() - 0.5) * 7,
+    rz: (Math.random() - 0.5) * 7,
+    life: cfg.despawnTime,
+    maxLife: cfg.despawnTime,
+    physics: cfg.physics,
+  });
+}
+
+function disposeEnemyCorpse(corpse) {
+  scene.remove(corpse.mesh);
+  corpse.mesh.geometry?.dispose?.();
+  corpse.mesh.material?.dispose?.();
+}
+
+function updateEnemyCorpses(delta) {
+  for (let i = enemyCorpses.length - 1; i >= 0; i--) {
+    const corpse = enemyCorpses[i];
+    corpse.life -= delta;
+    if (corpse.life <= 0) {
+      enemyCorpses.splice(i, 1);
+      disposeEnemyCorpse(corpse);
+      continue;
+    }
+    corpse.mesh.position.x += corpse.vx * delta;
+    corpse.mesh.position.y += corpse.vy * delta;
+    corpse.mesh.position.z += corpse.vz * delta;
+    corpse.mesh.rotation.x += corpse.rx * delta;
+    corpse.mesh.rotation.y += corpse.ry * delta;
+    corpse.mesh.rotation.z += corpse.rz * delta;
+    if (corpse.physics === 'gravity') {
+      corpse.vy -= PARTICLE_GRAVITY * delta;
+      if (corpse.mesh.position.y < enemyBaseHeight(corpse.mesh)) {
+        corpse.mesh.position.y = enemyBaseHeight(corpse.mesh);
+        corpse.vy = Math.abs(corpse.vy) * 0.18;
+        corpse.vx *= 0.76;
+        corpse.vz *= 0.76;
+      }
+    } else {
+      corpse.vy += 0.1 * delta;
+    }
+    const t = clamp(corpse.life / corpse.maxLife, 0, 1);
+    corpse.mesh.material.opacity = t;
+    corpse.mesh.material.transparent = true;
+  }
+}
+
+function enemyBaseHeight(mesh) {
+  return Math.max(0.22, Number(mesh.geometry?.boundingSphere?.radius) * 0.28 || 0.22);
+}
+
 function destroyEnemy(enemy) {
-  spawnDestructionParticles(enemy);
+  const cfg = getDestructionConfig(enemy);
+  spawnEnemyCorpse(enemy, cfg);
+  spawnDestructionParticles(enemy, cfg);
   if (enemy.type === ENEMY_TYPE.SPLITTER) spawnSplitChildren(enemy);
   const idx = enemies.indexOf(enemy);
   if (idx !== -1) enemies.splice(idx, 1);
@@ -1049,4 +1166,5 @@ export function updateEnemies(delta, elapsedTime = 0) {
 
   updateEnemyBullets(delta);
   updateDestructionParticles(delta);
+  updateEnemyCorpses(delta);
 }

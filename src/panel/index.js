@@ -12,7 +12,7 @@ import {
 import { setFloorVisible, setGridVisible, setFloorColor, setGridColor } from '../terrain.js';
 import { spawnEnemiesFromSettings, clearEnemies, applyTagSettings } from '../enemies.js';
 import { clearGameplayInput } from '../input.js';
-import { ASSET_CATALOGUE } from '../assets-catalogue.js';
+import { ASSET_CATALOGUE, ASSET_CATEGORY_LABELS } from '../assets-catalogue.js';
 import { clearPlacedObjects, rebuildPlacedObjects } from '../placer.js';
 
 const sidebar = document.getElementById('sidebar');
@@ -2246,13 +2246,39 @@ function buildEnemies(body) {
   }));
 }
 
+const DESTRUCTION_CONTROL_GROUPS = [
+  ['Rusher', 'destructionRusher', true],
+  ['Orbiter', 'destructionOrbiter', true],
+  ['Tanker', 'destructionTanker', true],
+  ['Sniper', 'destructionSniper', true],
+  ['Teleporter', 'destructionTeleporter', true],
+  ['Shielded', 'destructionShielded', true],
+  ['Splitter', 'destructionSplitter', true],
+  ['Boss', 'destructionBoss', true],
+  ['Destructible Assets', 'destructionDestructible', false],
+];
+
+function buildDestructionGroup(body, label, prefix, includeDespawn) {
+  body.appendChild(subhdr(label));
+  body.appendChild(slider({ key: `${prefix}ParticleCount`, label: 'Particle Count', min: 0, max: 250, step: 1, dec: 0 }));
+  body.appendChild(slider({ key: `${prefix}ParticleSize`, label: 'Particle Size', min: 0.05, max: 2, step: 0.05, dec: 2 }));
+  body.appendChild(slider({ key: `${prefix}ParticleSpeed`, label: 'Particle Speed', min: 0.1, max: 8, step: 0.05, dec: 2 }));
+  body.appendChild(slider({ key: `${prefix}ParticleGlow`, label: 'Particle Glow', min: 0, max: 24, step: 0.5, dec: 1 }));
+  body.appendChild(colorPicker('Color', `${prefix}Color`));
+  body.appendChild(select('Physics', `${prefix}Physics`, [
+    ['gravity', 'Gravity'],
+    ['ethereal', 'Ethereal'],
+  ]));
+  if (includeDespawn) {
+    body.appendChild(slider({ key: `${prefix}DespawnTime`, label: 'Despawn Time', min: 0.1, max: 10, step: 0.1, dec: 1 }));
+  }
+}
+
 function buildDestruction(body) {
   body.appendChild(toggle('Destruction FX', 'enemyDestructionEnabled'));
-  body.appendChild(slider({ key: 'enemyDestructionParticleCount', label: 'Particle Count', min: 0, max: 200, step: 1, dec: 0 }));
-  body.appendChild(slider({ key: 'enemyDestructionParticleSize', label: 'Particle Size', min: 0.05, max: 2, step: 0.05, dec: 2 }));
-  body.appendChild(slider({ key: 'enemyDestructionParticleSpeed', label: 'Particle Speed', min: 0.1, max: 6, step: 0.05, dec: 2 }));
-  body.appendChild(slider({ key: 'enemyDestructionParticleGlow', label: 'Particle Glow', min: 0, max: 24, step: 0.5, dec: 1 }));
-  body.appendChild(toggle('Physics', 'enemyDestructionPhysics'));
+  DESTRUCTION_CONTROL_GROUPS.forEach(([label, prefix, includeDespawn]) => {
+    buildDestructionGroup(body, label, prefix, includeDespawn);
+  });
 }
 
 function buildAbilities(body) {
@@ -2479,6 +2505,36 @@ function buildLandscape(body) {
 }
 
 
+function assetGroups() {
+  const grouped = new Map();
+  ASSET_CATALOGUE.forEach(asset => {
+    const key = asset.category || 'default';
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(asset);
+  });
+  return grouped;
+}
+
+function assetSelectRow() {
+  const sel = document.createElement('select');
+  sel.dataset.paramKey = 'placerSelectedAsset';
+  sel.className = 'sb-select';
+  assetGroups().forEach((assets, category) => {
+    const group = document.createElement('optgroup');
+    group.label = ASSET_CATEGORY_LABELS[category] || category;
+    assets.forEach(asset => {
+      const opt = document.createElement('option');
+      opt.value = asset.id;
+      opt.textContent = asset.label;
+      if (state.params.placerSelectedAsset === asset.id) opt.selected = true;
+      group.appendChild(opt);
+    });
+    sel.appendChild(group);
+  });
+  sel.addEventListener('change', () => { state.params.placerSelectedAsset = sel.value; });
+  return row('Selected Asset', sel);
+}
+
 function buildAssets(body) {
   body.appendChild(subhdr('Object Placer'));
 
@@ -2488,10 +2544,7 @@ function buildAssets(body) {
   slotInfo.textContent = 'Scroll wheel switches between Laser and Placer. F key opens asset picker. Right-click removes the targeted placed object.';
   body.appendChild(slotInfo);
 
-  // Asset selector
-  body.appendChild(select('Selected Asset', 'placerSelectedAsset',
-    ASSET_CATALOGUE.map(a => [a.id, a.label])
-  ));
+  body.appendChild(assetSelectRow());
 
   body.appendChild(colorPicker('Object Color', 'placerObjectColor', () => {
     rebuildPlacedObjects();
@@ -2962,10 +3015,10 @@ export function initPanel() {
     title.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.18em;color:#58a6ff;margin-bottom:14px;';
     box.appendChild(title);
 
-    const grid = document.createElement('div');
-    grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
+    const assetList = document.createElement('div');
+    assetList.style.cssText = 'display:flex;flex-direction:column;gap:14px;';
 
-    ASSET_CATALOGUE.forEach(asset => {
+    const makeAssetButton = asset => {
       const btn2 = document.createElement('button');
       btn2.textContent = asset.label;
       btn2.style.cssText = [
@@ -2984,9 +3037,22 @@ export function initPanel() {
         const sel = document.querySelector('[data-param-key="placerSelectedAsset"]');
         if (sel) sel.value = asset.id;
       });
-      grid.appendChild(btn2);
+      return btn2;
+    };
+
+    assetGroups().forEach((assets, category) => {
+      const groupWrap = document.createElement('div');
+      const groupTitle = document.createElement('div');
+      groupTitle.textContent = ASSET_CATEGORY_LABELS[category] || category;
+      groupTitle.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.14em;color:#8b949e;margin:0 0 8px;';
+      const grid = document.createElement('div');
+      grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;';
+      assets.forEach(asset => grid.appendChild(makeAssetButton(asset)));
+      groupWrap.appendChild(groupTitle);
+      groupWrap.appendChild(grid);
+      assetList.appendChild(groupWrap);
     });
-    box.appendChild(grid);
+    box.appendChild(assetList);
 
     const closeRow = document.createElement('div');
     closeRow.style.cssText = 'margin-top:14px;text-align:right;';

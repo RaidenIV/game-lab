@@ -15,6 +15,8 @@ const _geoFactories = {
   box:      () => new THREE.BoxGeometry(1, 1, 1),
   tall_box: () => new THREE.BoxGeometry(1, 2, 1),
   cylinder: () => new THREE.CylinderGeometry(0.4, 0.4, 1.2, 12),
+  destructible_crate:  () => new THREE.BoxGeometry(1, 1, 1),
+  destructible_barrel: () => new THREE.CylinderGeometry(0.4, 0.4, 1.2, 12),
   sphere:   () => new THREE.SphereGeometry(0.5, 16, 12),
   wall:     () => new THREE.BoxGeometry(4, 2, 0.25),
   ramp: () => {
@@ -46,6 +48,16 @@ const _geoFactories = {
 function makeGeo(assetId) {
   return (_geoFactories[assetId] || _geoFactories.box)();
 }
+
+const _dangerTexture = new THREE.TextureLoader().load('./assets/danger.png');
+if ('colorSpace' in _dangerTexture && THREE.SRGBColorSpace) _dangerTexture.colorSpace = THREE.SRGBColorSpace;
+const _dangerDecalMaterial = new THREE.MeshBasicMaterial({
+  map: _dangerTexture, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
+});
+const DESTRUCTIBLE_PARTICLE_GRAVITY = 9;
+const _destructibleParticles = [];
+const _destructibleParticlePool = [];
+const _destructibleParticleGeo = new THREE.BoxGeometry(1, 1, 1);
 
 function getAsset(id) {
   return ASSET_CATALOGUE.find(a => a.id === id) || ASSET_CATALOGUE[0];
@@ -487,7 +499,7 @@ export function isPlacedObjectHit(position, radius = 0.1) {
 
   const r = Math.max(0.001, Number(radius) || 0.1);
   const y = Number(position.y) || 0;
-  for (const obj of list) {
+  for (const obj of [...list]) {
     const bounds = placedObjectBounds(obj);
     if (bounds.asset.clip === false) continue;
     if (bounds.asset.walkable === true) {
@@ -496,7 +508,10 @@ export function isPlacedObjectHit(position, radius = 0.1) {
       continue;
     }
     if (y + r < bounds.minY || y - r > bounds.maxY) continue;
-    if (circleOverlapsBounds(position.x, position.z, r, bounds)) return true;
+    if (circleOverlapsBounds(position.x, position.z, r, bounds)) {
+      if (bounds.asset.destructible === true) destroyPlacedObject(obj);
+      return true;
+    }
   }
   return false;
 }
@@ -559,8 +574,14 @@ function syncGhostColor(asset) {
 
 function disposePlacedMesh(mesh) {
   scene.remove(mesh);
-  mesh.geometry.dispose();
-  mesh.material.dispose();
+  mesh.traverse?.(child => {
+    if (child !== mesh) {
+      child.geometry?.dispose?.();
+      child.material?.dispose?.();
+    }
+  });
+  mesh.geometry?.dispose?.();
+  mesh.material?.dispose?.();
 }
 
 function removePlacedMesh(mesh) {
@@ -573,9 +594,7 @@ function removePlacedMesh(mesh) {
   if (dataIndex !== -1) list.splice(dataIndex, 1);
   else if (meshIndex < list.length) list.splice(meshIndex, 1);
   state.params.placedObjects = list;
-
-  _placedMeshes.splice(meshIndex, 1);
-  disposePlacedMesh(mesh);
+  rebuildPlacedObjects();
   return true;
 }
 
@@ -607,6 +626,211 @@ function removePlacedObjectAtFootprint(sx, sz, assetId, ry, scaleSource = null) 
   return bestIndex >= 0 && _placedMeshes[bestIndex] ? removePlacedMesh(_placedMeshes[bestIndex]) : false;
 }
 
+
+function hexToNumber(value, fallback = 0xffcc00) {
+  const normalized = normalizeHexColor(value);
+  return normalized ? Number.parseInt(normalized.slice(1), 16) : fallback;
+}
+
+function destructionParam(prefix, suffix, fallback) {
+  const value = state.params[`${prefix}${suffix}`];
+  return value === undefined || value === null ? fallback : value;
+}
+
+function getDestructibleExplosionConfig() {
+  const p = state.params;
+  return {
+    count: Math.max(0, Math.round(Number(destructionParam('destructionDestructible', 'ParticleCount', p.enemyDestructionParticleCount ?? 40)) || 0)),
+    size: Math.max(0.01, Number(destructionParam('destructionDestructible', 'ParticleSize', p.enemyDestructionParticleSize ?? 0.32)) || 0.32),
+    speed: Math.max(0.01, Number(destructionParam('destructionDestructible', 'ParticleSpeed', p.enemyDestructionParticleSpeed ?? 1.25)) || 1.25),
+    glow: Math.max(0, Number(destructionParam('destructionDestructible', 'ParticleGlow', p.enemyDestructionParticleGlow ?? 8)) || 0),
+    color: hexToNumber(destructionParam('destructionDestructible', 'Color', '#ffd400'), 0xffd400),
+    physics: destructionParam('destructionDestructible', 'Physics', p.enemyDestructionPhysics === false ? 'ethereal' : 'gravity'),
+  };
+}
+
+function acquireDestructibleParticle(color) {
+  const mesh = _destructibleParticlePool.pop() || new THREE.Mesh(
+    _destructibleParticleGeo,
+    new THREE.MeshStandardMaterial({
+      color, emissive: color, emissiveIntensity: 0, transparent: true,
+      opacity: 1, roughness: 0.52, metalness: 0.05, depthWrite: false,
+    }),
+  );
+  mesh.material.color.set(color);
+  mesh.material.emissive.set(color);
+  mesh.material.opacity = 1;
+  mesh.material.emissiveIntensity = 0;
+  mesh.visible = true;
+  scene.add(mesh);
+  return mesh;
+}
+
+function releaseDestructibleParticle(particle) {
+  scene.remove(particle.mesh);
+  particle.mesh.visible = false;
+  _destructibleParticlePool.push(particle.mesh);
+}
+
+function spawnPlacedObjectExplosion(obj, asset) {
+  if (state.params.enemyDestructionEnabled === false) return;
+  const cfg = getDestructibleExplosionConfig();
+  if (cfg.count <= 0) return;
+  const bounds = placedObjectBounds(obj);
+  const cx = Number(obj.x) || 0;
+  const cy = (bounds.minY + bounds.maxY) * 0.5;
+  const cz = Number(obj.z) || 0;
+  for (let i = 0; i < cfg.count; i++) {
+    const mesh = acquireDestructibleParticle(cfg.color);
+    const baseRadius = (0.08 + Math.random() * 0.14) * cfg.size;
+    const yaw = Math.random() * Math.PI * 2;
+    const pitch = (Math.random() - 0.2) * Math.PI * 0.75;
+    const speed = (3.5 + Math.random() * 8.5) * cfg.speed;
+    const maxLife = 0.65 + Math.random() * 0.7;
+    mesh.position.set(cx, cy, cz);
+    mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    mesh.scale.setScalar(baseRadius);
+    _destructibleParticles.push({
+      mesh, baseRadius,
+      vx: Math.cos(yaw) * Math.cos(pitch) * speed,
+      vy: Math.sin(pitch) * speed + (cfg.physics === 'gravity' ? 2.25 * cfg.speed : 0.65 * cfg.speed),
+      vz: Math.sin(yaw) * Math.cos(pitch) * speed,
+      rx: (Math.random() - 0.5) * 8,
+      ry: (Math.random() - 0.5) * 8,
+      rz: (Math.random() - 0.5) * 8,
+      life: maxLife, maxLife, glowCap: cfg.glow, physics: cfg.physics,
+    });
+  }
+}
+
+function updateDestructibleParticles(delta = 1 / 60) {
+  for (let i = _destructibleParticles.length - 1; i >= 0; i--) {
+    const particle = _destructibleParticles[i];
+    particle.life -= delta;
+    if (particle.life <= 0) {
+      _destructibleParticles.splice(i, 1);
+      releaseDestructibleParticle(particle);
+      continue;
+    }
+    particle.mesh.position.x += particle.vx * delta;
+    particle.mesh.position.y += particle.vy * delta;
+    particle.mesh.position.z += particle.vz * delta;
+    particle.mesh.rotation.x += particle.rx * delta;
+    particle.mesh.rotation.y += particle.ry * delta;
+    particle.mesh.rotation.z += particle.rz * delta;
+    if (particle.physics === 'gravity') {
+      particle.vy -= DESTRUCTIBLE_PARTICLE_GRAVITY * delta;
+      if (particle.mesh.position.y < 0.03) {
+        particle.mesh.position.y = 0.03;
+        particle.vy = Math.abs(particle.vy) * 0.24;
+        particle.vx *= 0.82;
+        particle.vz *= 0.82;
+      }
+    } else {
+      particle.vy += 0.18 * delta;
+    }
+    const t = clamp(particle.life / particle.maxLife, 0, 1);
+    particle.mesh.scale.setScalar(Math.max(0.001, t * 1.15 * particle.baseRadius));
+    particle.mesh.material.opacity = t;
+    particle.mesh.material.emissiveIntensity = Math.min(t * 5, particle.glowCap);
+  }
+}
+
+function destroyPlacedObject(obj) {
+  const list = state.params.placedObjects || [];
+  const dataIndex = list.indexOf(obj);
+  if (dataIndex === -1) return false;
+  const asset = getAsset(obj.assetId);
+  if (asset.destructible !== true) return false;
+  spawnPlacedObjectExplosion(obj, asset);
+  list.splice(dataIndex, 1);
+  state.params.placedObjects = list;
+  rebuildPlacedObjects();
+  return true;
+}
+
+function rangesOverlap(minA, maxA, minB, maxB, pad = 0.001) {
+  return minA < maxB - pad && maxA > minB + pad;
+}
+
+function isDangerFaceShared(obj, bounds, face) {
+  const eps = 0.025;
+  if (face === 'bottom' && bounds.minY <= eps) return true;
+  const list = state.params.placedObjects || [];
+  for (const other of list) {
+    if (!other || other === obj) continue;
+    const ob = placedObjectBounds(other);
+    if (ob.asset.clip === false) continue;
+    if (face === 'top') {
+      if (Math.abs(ob.minY - bounds.maxY) <= eps && boundsOverlap(bounds, ob)) return true;
+    } else if (face === 'bottom') {
+      if (Math.abs(ob.maxY - bounds.minY) <= eps && boundsOverlap(bounds, ob)) return true;
+    } else if (rangesOverlap(bounds.minY, bounds.maxY, ob.minY, ob.maxY)) {
+      if (face === 'posX' && Math.abs(ob.minX - bounds.maxX) <= eps && rangesOverlap(bounds.minZ, bounds.maxZ, ob.minZ, ob.maxZ)) return true;
+      if (face === 'negX' && Math.abs(ob.maxX - bounds.minX) <= eps && rangesOverlap(bounds.minZ, bounds.maxZ, ob.minZ, ob.maxZ)) return true;
+      if (face === 'posZ' && Math.abs(ob.minZ - bounds.maxZ) <= eps && rangesOverlap(bounds.minX, bounds.maxX, ob.minX, ob.maxX)) return true;
+      if (face === 'negZ' && Math.abs(ob.maxZ - bounds.minZ) <= eps && rangesOverlap(bounds.minX, bounds.maxX, ob.minX, ob.maxX)) return true;
+    }
+  }
+  return false;
+}
+
+function addDangerPlane(parent, width, height, position, rotation) {
+  const mat = _dangerDecalMaterial.clone();
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, height), mat);
+  plane.name = 'DangerFaceDecal';
+  plane.position.set(position.x, position.y, position.z);
+  plane.rotation.set(rotation.x, rotation.y, rotation.z);
+  plane.renderOrder = 4;
+  plane.castShadow = false;
+  plane.receiveShadow = false;
+  parent.add(plane);
+}
+
+function addDangerDecals(mesh, obj, asset) {
+  if (asset.destructible !== true) return;
+  const bounds = placedObjectBounds(obj);
+  const decalSize = asset.id === 'destructible_barrel' ? 0.58 : 0.68;
+  if (asset.id === 'destructible_barrel') {
+    const r = 0.405;
+    const y = 0;
+    const sideW = 0.52;
+    const sideH = 0.52;
+    if (!isDangerFaceShared(obj, bounds, 'posZ')) addDangerPlane(mesh, sideW, sideH, { x: 0, y, z: r }, { x: 0, y: 0, z: 0 });
+    if (!isDangerFaceShared(obj, bounds, 'negZ')) addDangerPlane(mesh, sideW, sideH, { x: 0, y, z: -r }, { x: 0, y: Math.PI, z: 0 });
+    if (!isDangerFaceShared(obj, bounds, 'posX')) addDangerPlane(mesh, sideW, sideH, { x: r, y, z: 0 }, { x: 0, y: Math.PI / 2, z: 0 });
+    if (!isDangerFaceShared(obj, bounds, 'negX')) addDangerPlane(mesh, sideW, sideH, { x: -r, y, z: 0 }, { x: 0, y: -Math.PI / 2, z: 0 });
+    if (!isDangerFaceShared(obj, bounds, 'top')) addDangerPlane(mesh, decalSize, decalSize, { x: 0, y: 0.605, z: 0 }, { x: -Math.PI / 2, y: 0, z: 0 });
+    if (!isDangerFaceShared(obj, bounds, 'bottom')) addDangerPlane(mesh, decalSize, decalSize, { x: 0, y: -0.605, z: 0 }, { x: Math.PI / 2, y: 0, z: 0 });
+    return;
+  }
+
+  const h = 0.501;
+  if (!isDangerFaceShared(obj, bounds, 'posZ')) addDangerPlane(mesh, decalSize, decalSize, { x: 0, y: 0, z: h }, { x: 0, y: 0, z: 0 });
+  if (!isDangerFaceShared(obj, bounds, 'negZ')) addDangerPlane(mesh, decalSize, decalSize, { x: 0, y: 0, z: -h }, { x: 0, y: Math.PI, z: 0 });
+  if (!isDangerFaceShared(obj, bounds, 'posX')) addDangerPlane(mesh, decalSize, decalSize, { x: h, y: 0, z: 0 }, { x: 0, y: Math.PI / 2, z: 0 });
+  if (!isDangerFaceShared(obj, bounds, 'negX')) addDangerPlane(mesh, decalSize, decalSize, { x: -h, y: 0, z: 0 }, { x: 0, y: -Math.PI / 2, z: 0 });
+  if (!isDangerFaceShared(obj, bounds, 'top')) addDangerPlane(mesh, decalSize, decalSize, { x: 0, y: h, z: 0 }, { x: -Math.PI / 2, y: 0, z: 0 });
+  if (!isDangerFaceShared(obj, bounds, 'bottom')) addDangerPlane(mesh, decalSize, decalSize, { x: 0, y: -h, z: 0 }, { x: Math.PI / 2, y: 0, z: 0 });
+}
+
+function createPlacedMesh(obj, asset) {
+  const mesh = new THREE.Mesh(makeGeo(asset.id), materialForAsset(asset, obj));
+  mesh.userData.placedObject = obj;
+  const scale = getPlacedScale(obj);
+  obj.scaleX = scale.x;
+  obj.scaleY = scale.y;
+  obj.scaleZ = scale.z;
+  if (!Number.isFinite(Number(obj.y))) obj.y = Number(asset?.yOffset ?? 0.5) * scale.y;
+  mesh.position.set(obj.x, obj.y, obj.z);
+  mesh.rotation.y = obj.ry ?? 0;
+  mesh.scale.set(scale.x, scale.y, scale.z);
+  mesh.castShadow = asset.id !== 'ramp';
+  mesh.receiveShadow = true;
+  addDangerDecals(mesh, obj, asset);
+  return mesh;
+}
+
 export function rebuildPlacedObjects() {
   for (const m of _placedMeshes) {
     disposePlacedMesh(m);
@@ -616,18 +840,7 @@ export function rebuildPlacedObjects() {
   const list = state.params.placedObjects || [];
   for (const obj of list) {
     const asset = getAsset(obj.assetId);
-    const mesh  = new THREE.Mesh(makeGeo(asset.id), materialForAsset(asset, obj));
-    mesh.userData.placedObject = obj;
-    const scale = getPlacedScale(obj);
-    obj.scaleX = scale.x;
-    obj.scaleY = scale.y;
-    obj.scaleZ = scale.z;
-    if (!Number.isFinite(Number(obj.y))) obj.y = Number(asset?.yOffset ?? 0.5) * scale.y;
-    mesh.position.set(obj.x, obj.y, obj.z);
-    mesh.rotation.y    = obj.ry ?? 0;
-    mesh.scale.set(scale.x, scale.y, scale.z);
-    mesh.castShadow    = asset.id !== 'ramp';
-    mesh.receiveShadow = true;
+    const mesh = createPlacedMesh(obj, asset);
     scene.add(mesh);
     _placedMeshes.push(mesh);
   }
@@ -649,15 +862,7 @@ function placeObject(sx, sz, placementY = null) {
   list.push(placed);
   state.params.placedObjects = list;
 
-  const mesh = new THREE.Mesh(makeGeo(asset.id), materialForAsset(asset, placed));
-  mesh.userData.placedObject = placed;
-  mesh.position.set(sx, y, sz);
-  mesh.rotation.y    = ry;
-  mesh.scale.set(scale.x, scale.y, scale.z);
-  mesh.castShadow    = asset.id !== 'ramp';
-  mesh.receiveShadow = true;
-  scene.add(mesh);
-  _placedMeshes.push(mesh);
+  rebuildPlacedObjects();
 }
 
 export function clearPlacedObjects() {
@@ -723,7 +928,8 @@ function syncReticleForActiveSlot(placerOn) {
   }
 }
 
-export function updatePlacer() {
+export function updatePlacer(delta = 1 / 60) {
+  updateDestructibleParticles(delta);
   const slot     = state.activeSlot ?? 0;
   const placerOn = slot === 1;
   const assetId  = state.params.placerSelectedAsset || 'box';
