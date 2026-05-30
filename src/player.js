@@ -25,6 +25,21 @@ playerMesh.castShadow = true;
 playerMesh.position.y = 0.4 + 1.2 / 2;
 playerGroup.add(playerMesh);
 
+let _jumpSoundEl = null;
+function playJumpSound() {
+  if (state.params.soundMuted) return;
+  const master = Number(state.params.soundSfxVolume ?? 1);
+  const jumpVol = Number(state.params.soundSfx_jump ?? 1);
+  const volume = Math.max(0, Math.min(1, master * jumpVol));
+  if (volume <= 0) return;
+  if (!_jumpSoundEl) _jumpSoundEl = new Audio('./assets/jump.wav');
+  const sound = _jumpSoundEl.cloneNode();
+  sound.volume = volume;
+  sound.currentTime = 0;
+  sound.play().catch(() => {});
+}
+
+
 function createContactShadowTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -581,9 +596,11 @@ function updateJump(delta) {
       state.jumpVelocity = jumpForce;
       state.jumpGrounded = false;
       state.jumpAirJumpsUsed = 0;
+      playJumpSound();
     } else if (p.doubleJumpEnabled && (state.jumpAirJumpsUsed || 0) < 1) {
       state.jumpVelocity = jumpForce;
       state.jumpAirJumpsUsed = (state.jumpAirJumpsUsed || 0) + 1;
+      playJumpSound();
     }
   }
   state.jumpQueued = false;

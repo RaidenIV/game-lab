@@ -73,6 +73,23 @@ const FIRE_RATE_SECONDS = {
   sniper: 2.2,
 };
 
+let _enemyGruntEl = null;
+const _corpseBox = new THREE.Box3();
+
+function playEnemyGruntSound() {
+  if (state.params.soundMuted) return;
+  const master = Number(state.params.soundSfxVolume ?? 1);
+  const grunt = Number(state.params.soundSfx_enemy_grunt ?? state.params.soundSfx_standard_hit ?? 1);
+  const volume = Math.max(0, Math.min(1, master * grunt));
+  if (volume <= 0) return;
+  if (!_enemyGruntEl) _enemyGruntEl = new Audio('./assets/grunt.wav');
+  const sound = _enemyGruntEl.cloneNode();
+  sound.volume = volume;
+  sound.currentTime = 0;
+  sound.play().catch(() => {});
+}
+
+
 // ── Grouping config (GROUPING.md) ─────────────────────────────────────────────
 const ENEMY_GROUPING = {
   hashCellSize: 4.0,
@@ -747,7 +764,7 @@ function getDestructionConfig(enemy) {
     glow: Math.max(0, Number(getDestructionParam(prefix, 'ParticleGlow', defaultParticleGlowForEnemy(enemy))) || 0),
     color: hexToNumber(getDestructionParam(prefix, 'Color', `#${fallbackColor.toString(16).padStart(6, '0')}`), fallbackColor),
     physics: getDestructionParam(prefix, 'Physics', state.params.enemyDestructionPhysics === false ? 'ethereal' : 'gravity') === 'ethereal' ? 'ethereal' : 'gravity',
-    despawnTime: Math.max(0.1, Number(getDestructionParam(prefix, 'DespawnTime', 1)) || 1),
+    despawnTime: Math.max(0.1, Number(getDestructionParam(prefix, 'DespawnTime', 3.0)) || 3.0),
   };
 }
 
@@ -813,6 +830,7 @@ function spawnEnemyCorpse(enemy, cfg = getDestructionConfig(enemy)) {
   mesh.position.y += enemy.mesh.position.y;
   mesh.quaternion.copy(enemy.group.quaternion);
   scene.add(mesh);
+  liftCorpseAboveFloor({ mesh });
   const yaw = Math.random() * Math.PI * 2;
   const speed = (1.4 + Math.random() * 2.6) * Math.max(0.3, cfg.speed);
   enemyCorpses.push({
@@ -827,6 +845,17 @@ function spawnEnemyCorpse(enemy, cfg = getDestructionConfig(enemy)) {
     maxLife: cfg.despawnTime,
     physics: cfg.physics,
   });
+}
+
+function liftCorpseAboveFloor(corpse) {
+  corpse.mesh.updateMatrixWorld(true);
+  _corpseBox.setFromObject(corpse.mesh);
+  const floorY = 0.035;
+  if (_corpseBox.min.y < floorY) {
+    corpse.mesh.position.y += floorY - _corpseBox.min.y;
+    return true;
+  }
+  return false;
 }
 
 function disposeEnemyCorpse(corpse) {
@@ -852,8 +881,7 @@ function updateEnemyCorpses(delta) {
     corpse.mesh.rotation.z += corpse.rz * delta;
     if (corpse.physics === 'gravity') {
       corpse.vy -= PARTICLE_GRAVITY * delta;
-      if (corpse.mesh.position.y < enemyBaseHeight(corpse.mesh)) {
-        corpse.mesh.position.y = enemyBaseHeight(corpse.mesh);
+      if (liftCorpseAboveFloor(corpse)) {
         corpse.vy = Math.abs(corpse.vy) * 0.18;
         corpse.vx *= 0.76;
         corpse.vz *= 0.76;
@@ -872,6 +900,7 @@ function enemyBaseHeight(mesh) {
 }
 
 function destroyEnemy(enemy) {
+  playEnemyGruntSound();
   const cfg = getDestructionConfig(enemy);
   spawnEnemyCorpse(enemy, cfg);
   spawnDestructionParticles(enemy, cfg);

@@ -52,12 +52,27 @@ function makeGeo(assetId) {
 const _dangerTexture = new THREE.TextureLoader().load('./assets/danger.png');
 if ('colorSpace' in _dangerTexture && THREE.SRGBColorSpace) _dangerTexture.colorSpace = THREE.SRGBColorSpace;
 const _dangerDecalMaterial = new THREE.MeshBasicMaterial({
-  map: _dangerTexture, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
+  map: _dangerTexture, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2,
 });
 const DESTRUCTIBLE_PARTICLE_GRAVITY = 9;
 const _destructibleParticles = [];
 const _destructibleParticlePool = [];
 const _destructibleParticleGeo = new THREE.BoxGeometry(1, 1, 1);
+
+let _objectExplosionEl = null;
+function playObjectExplosionSound() {
+  if (state.params.soundMuted) return;
+  const master = Number(state.params.soundSfxVolume ?? 1);
+  const objectVol = Number(state.params.soundSfx_object_explode ?? state.params.soundSfx_explode ?? 1);
+  const volume = Math.max(0, Math.min(1, master * objectVol));
+  if (volume <= 0) return;
+  if (!_objectExplosionEl) _objectExplosionEl = new Audio('./assets/xpl1.wav');
+  const sound = _objectExplosionEl.cloneNode();
+  sound.volume = volume;
+  sound.currentTime = 0;
+  sound.play().catch(() => {});
+}
+
 
 function getAsset(id) {
   return ASSET_CATALOGUE.find(a => a.id === id) || ASSET_CATALOGUE[0];
@@ -742,6 +757,7 @@ function destroyPlacedObject(obj) {
   if (dataIndex === -1) return false;
   const asset = getAsset(obj.assetId);
   if (asset.destructible !== true) return false;
+  playObjectExplosionSound();
   spawnPlacedObjectExplosion(obj, asset);
   list.splice(dataIndex, 1);
   state.params.placedObjects = list;
@@ -787,19 +803,35 @@ function addDangerPlane(parent, width, height, position, rotation) {
   parent.add(plane);
 }
 
+function addDangerCurvedPanel(parent, radius, height, thetaStart, thetaLength) {
+  const mat = _dangerDecalMaterial.clone();
+  mat.side = THREE.DoubleSide;
+  const panel = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, height, 8, 1, true, thetaStart, thetaLength),
+    mat,
+  );
+  panel.name = 'DangerCurvedFaceDecal';
+  panel.renderOrder = 4;
+  panel.castShadow = false;
+  panel.receiveShadow = false;
+  parent.add(panel);
+}
+
 function addDangerDecals(mesh, obj, asset) {
   if (asset.destructible !== true) return;
   const bounds = placedObjectBounds(obj);
   const decalSize = asset.id === 'destructible_barrel' ? 0.58 : 0.68;
   if (asset.id === 'destructible_barrel') {
-    const r = 0.405;
-    const y = 0;
-    const sideW = 0.52;
-    const sideH = 0.52;
-    if (!isDangerFaceShared(obj, bounds, 'posZ')) addDangerPlane(mesh, sideW, sideH, { x: 0, y, z: r }, { x: 0, y: 0, z: 0 });
-    if (!isDangerFaceShared(obj, bounds, 'negZ')) addDangerPlane(mesh, sideW, sideH, { x: 0, y, z: -r }, { x: 0, y: Math.PI, z: 0 });
-    if (!isDangerFaceShared(obj, bounds, 'posX')) addDangerPlane(mesh, sideW, sideH, { x: r, y, z: 0 }, { x: 0, y: Math.PI / 2, z: 0 });
-    if (!isDangerFaceShared(obj, bounds, 'negX')) addDangerPlane(mesh, sideW, sideH, { x: -r, y, z: 0 }, { x: 0, y: -Math.PI / 2, z: 0 });
+    const r = 0.407;
+    const sideH = 0.54;
+    const quadrant = Math.PI / 2;
+    // Use curved quarter-cylinder decal panels so danger.png wraps around the
+    // barrel instead of floating as flat cards. Shared side quadrants are
+    // skipped, preserving the existing hidden-face rule for stacked/adjacent assets.
+    if (!isDangerFaceShared(obj, bounds, 'posZ')) addDangerCurvedPanel(mesh, r, sideH, -Math.PI / 4, quadrant);
+    if (!isDangerFaceShared(obj, bounds, 'posX')) addDangerCurvedPanel(mesh, r, sideH, Math.PI / 4, quadrant);
+    if (!isDangerFaceShared(obj, bounds, 'negZ')) addDangerCurvedPanel(mesh, r, sideH, Math.PI * 3 / 4, quadrant);
+    if (!isDangerFaceShared(obj, bounds, 'negX')) addDangerCurvedPanel(mesh, r, sideH, Math.PI * 5 / 4, quadrant);
     if (!isDangerFaceShared(obj, bounds, 'top')) addDangerPlane(mesh, decalSize, decalSize, { x: 0, y: 0.605, z: 0 }, { x: -Math.PI / 2, y: 0, z: 0 });
     if (!isDangerFaceShared(obj, bounds, 'bottom')) addDangerPlane(mesh, decalSize, decalSize, { x: 0, y: -0.605, z: 0 }, { x: Math.PI / 2, y: 0, z: 0 });
     return;
