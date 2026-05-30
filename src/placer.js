@@ -18,22 +18,26 @@ const _geoFactories = {
   sphere:   () => new THREE.SphereGeometry(0.5, 16, 12),
   wall:     () => new THREE.BoxGeometry(4, 2, 0.25),
   ramp: () => {
-    // Indexed triangular-prism ramp. Shared vertices keep the preview outline from
-    // drawing diagonal triangulation lines across each face.
+    // Non-indexed triangular-prism ramp with duplicated vertices per face. This
+    // keeps the ramp visually flat/sharp while EdgesGeometry still omits the
+    // coplanar internal diagonals in the placement preview.
     const g = new THREE.BufferGeometry();
-    const v = new Float32Array([
-      -2, 0, -1,   2, 0, -1,
-      -2, 0,  1,   2, 0,  1,
-      -2, 2,  1,   2, 2,  1,
-    ]);
-    g.setAttribute('position', new THREE.BufferAttribute(v, 3));
-    g.setIndex([
-      0, 1, 3,  0, 3, 2,       // bottom (faces downward; avoids floor z-fighting)
-      0, 5, 1,  0, 4, 5,       // sloped walkable face (faces upward)
-      0, 2, 4,                 // left triangular side
-      1, 5, 3,                 // right triangular side
-      2, 3, 5,  2, 5, 4,       // high vertical face
-    ]);
+    const pts = [
+      [-2, 0, -1], [ 2, 0, -1], [-2, 0,  1],
+      [ 2, 0,  1], [-2, 2,  1], [ 2, 2,  1],
+    ];
+    const faces = [
+      [0, 1, 3], [0, 3, 2],     // bottom, normal down
+      [0, 5, 1], [0, 4, 5],     // sloped walkable face, normal up/front
+      [0, 2, 4],                // left side
+      [1, 5, 3],                // right side
+      [2, 3, 5], [2, 5, 4],     // high rear face
+    ];
+    const positions = [];
+    for (const tri of faces) {
+      for (const i of tri) positions.push(...pts[i]);
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
     g.computeVertexNormals();
     return g;
   },
@@ -473,7 +477,10 @@ const _placedMeshes = [];
 
 function materialForAsset(asset, obj = null) {
   return new THREE.MeshStandardMaterial({
-    color: resolvePlacedColor(obj, asset), roughness: 0.7, metalness: 0.1,
+    color: resolvePlacedColor(obj, asset),
+    roughness: 0.7,
+    metalness: 0.1,
+    flatShading: asset?.id === 'ramp',
   });
 }
 
@@ -552,7 +559,7 @@ export function rebuildPlacedObjects() {
     mesh.position.set(obj.x, obj.y, obj.z);
     mesh.rotation.y    = obj.ry ?? 0;
     mesh.scale.set(scale.x, scale.y, scale.z);
-    mesh.castShadow    = true;
+    mesh.castShadow    = asset.id !== 'ramp';
     mesh.receiveShadow = true;
     scene.add(mesh);
     _placedMeshes.push(mesh);
@@ -580,7 +587,7 @@ function placeObject(sx, sz, placementY = null) {
   mesh.position.set(sx, y, sz);
   mesh.rotation.y    = ry;
   mesh.scale.set(scale.x, scale.y, scale.z);
-  mesh.castShadow    = true;
+  mesh.castShadow    = asset.id !== 'ramp';
   mesh.receiveShadow = true;
   scene.add(mesh);
   _placedMeshes.push(mesh);
@@ -615,13 +622,37 @@ function getSlotEl() {
 let _firePrev = false;
 let _secondaryPrev = false;
 
+const RETICLE_MARKUP = {
+  dot: '<span class="reticle-part reticle-dot"></span>',
+  cross: '<span class="reticle-part reticle-line reticle-line-h"></span><span class="reticle-part reticle-line reticle-line-v"></span>',
+  ring: '<span class="reticle-part reticle-ring"></span>',
+  crossDot: '<span class="reticle-part reticle-line reticle-line-h"></span><span class="reticle-part reticle-line reticle-line-v"></span><span class="reticle-part reticle-dot"></span>',
+  triSpoke: '<span class="reticle-part reticle-spoke" style="--angle: 0deg"></span><span class="reticle-part reticle-spoke" style="--angle: 120deg"></span><span class="reticle-part reticle-spoke" style="--angle: 240deg"></span><span class="reticle-part reticle-dot reticle-center-dot"></span>',
+};
+
+function setReticleMarkup(reticle, type) {
+  const normalizedType = RETICLE_MARKUP[type] ? type : 'dot';
+  if (reticle.dataset.reticleType !== normalizedType) {
+    reticle.innerHTML = RETICLE_MARKUP[normalizedType];
+    reticle.dataset.reticleType = normalizedType;
+  }
+}
+
 function syncReticleForActiveSlot(placerOn) {
   const reticle = document.getElementById('target-reticle');
   if (!reticle) return;
-  const shouldShow = !placerOn && !!state.params.hudVisible && !!state.params.reticleVisible;
+
+  const shouldShow = !!state.params.hudVisible && !!state.params.reticleVisible;
   reticle.style.display = shouldShow ? '' : 'none';
+  reticle.classList.remove('reticle-enemy-hover', 'is-targeting-enemy');
+
   if (placerOn) {
-    reticle.classList.remove('reticle-enemy-hover', 'is-targeting-enemy');
+    // Object placement uses a clean dot reticle even when the weapon reticle is
+    // configured as a crosshair/ring/spoke. Leaving placer mode restores the
+    // normal reticle type from state.params below.
+    setReticleMarkup(reticle, 'dot');
+  } else {
+    setReticleMarkup(reticle, state.params.reticleType || 'dot');
   }
 }
 
@@ -630,7 +661,7 @@ export function updatePlacer() {
   const placerOn = slot === 1;
   const assetId  = state.params.placerSelectedAsset || 'box';
 
-  // ADS and the combat reticle are disabled while placer is active.
+  // ADS is disabled while placer is active; the reticle switches to placement-dot mode.
   if (placerOn) state.isAiming = false;
   syncReticleForActiveSlot(placerOn);
 
