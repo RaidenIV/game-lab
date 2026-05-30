@@ -8,9 +8,10 @@ export const state = {
   slowTimer: 0,
   slowScale: 0.35,
   slowRequested: false,
-  activePreset: 'g7',
+  activePreset: 'g8',
   mouseLookActive: false,
   isAiming: false,          // true while right-mouse / L2 held
+  activeSlot: 0,            // 0 = laser, 1 = object placer
   primaryFire: false,
   jumpQueued: false,
   jumpVelocity: 0,
@@ -168,6 +169,10 @@ export const state = {
       "tagBloom": 3,
       "tagShadow": 4,
       "tagHeight": 18,
+
+      // Assets / Object Placer
+      "placedObjects": [],
+      "placerSelectedAsset": "box",
 
       // Radar
       "radarEnabled": true,

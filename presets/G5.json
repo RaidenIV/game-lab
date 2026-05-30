@@ -148,5 +148,7 @@
   "aimDistDelta": -1.5,
   "aimSpeedMult": 0.55,
   "aimSmooth": 10,
-  "shieldLineBloom": 0.5
+  "shieldLineBloom": 0.5,
+  "placedObjects": [],
+  "placerSelectedAsset": "box"
 }

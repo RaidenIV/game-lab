@@ -223,6 +223,15 @@ window.addEventListener('keydown', e => {
     }
   }
 
+
+  // F key → open asset picker modal (only when placer slot is active)
+  if (k === 'f' && !e.repeat && (state.activeSlot ?? 0) === 1) {
+    e.preventDefault();
+    const modal = document.getElementById('placer-modal');
+    if (modal) modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
+    return;
+  }
+
   // V key → shoulder swap (flip lateral camera offset)
   if (k === 'v' && !e.repeat) {
     state.params.thirdOffsetX = -(state.params.thirdOffsetX || 1.25);
@@ -262,6 +271,19 @@ window.addEventListener('keyup', e => {
   if (k === 'd' || k === 'arrowright') state.keys.d = false;
   if (e.code === 'Space') state.keys.space = false;
 });
+
+
+// ── Scroll wheel → switch weapon slot ─────────────────────────────────────────
+window.addEventListener('wheel', e => {
+  if (state.paused) return;
+  // Close placer modal if open
+  const modal = document.getElementById('placer-modal');
+  if (modal && modal.style.display !== 'none') return;
+  const slots = 2; // 0=laser, 1=placer
+  const dir   = e.deltaY > 0 ? 1 : -1;
+  state.activeSlot = ((state.activeSlot ?? 0) + dir + slots) % slots;
+  e.preventDefault();
+}, { passive: false });
 
 // ── Gamepad / Controller support ───────────────────────────────────────────────
 // DualSense / DualShock button layout (standard mapping):
