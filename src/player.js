@@ -99,13 +99,15 @@ const _shieldFresnelUniforms = () => ({
 });
 
 const _shieldVertexShader = /* glsl */`
-  varying vec3 vNormal;
+  varying vec3 vWorldNormal;
   varying vec3 vViewDir;
   void main() {
     vec4 worldPos = modelMatrix * vec4(position, 1.0);
-    vNormal  = normalize(normalMatrix * normal);
-    vViewDir = normalize(cameraPosition - worldPos.xyz);
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    // World-space normal: use the inverse-transpose of modelMatrix.
+    // For a uniformly scaled sphere this equals normalize(modelMatrix * vec4(normal,0)).
+    vWorldNormal = normalize(mat3(modelMatrix) * normal);
+    vViewDir     = normalize(cameraPosition - worldPos.xyz);
+    gl_Position  = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
 
@@ -114,13 +116,14 @@ const _shieldFragmentShader = /* glsl */`
   uniform float uOpacity;
   uniform float uFresnelPower;
   uniform float uRimMin;
-  varying vec3 vNormal;
+  varying vec3 vWorldNormal;
   varying vec3 vViewDir;
   void main() {
-    vec3 N = normalize(vNormal);
+    // Both vectors in world space — Fresnel is camera-position-independent
+    // so the rim always appears at the geometric silhouette regardless of orbit.
+    vec3 N = normalize(vWorldNormal);
     vec3 V = normalize(vViewDir);
-    float ndotv = abs(dot(N, V)); // abs so back face mirrors front
-    // Fresnel: bright at rim (ndotv≈0), faint at centre (ndotv≈1)
+    float ndotv = abs(dot(N, V));
     float fresnel = pow(1.0 - ndotv, uFresnelPower);
     fresnel = mix(uRimMin, 1.0, fresnel);
     float alpha = uOpacity * fresnel;
