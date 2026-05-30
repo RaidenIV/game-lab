@@ -203,7 +203,7 @@ shieldGroup.add(playerShieldBloom);
 // icosahedron vertices, all other cells hexagonal. The cells naturally tile the
 // sphere without stretching, overlapping, or seams.
 // The IcosahedronGeometry subdivision level controls cell density.
-let _shieldGeometryKey = '';
+
 
 function shieldDetailFromHexSize(radius, hexSize) {
   const ratio = hexSize / Math.max(0.2, radius);
