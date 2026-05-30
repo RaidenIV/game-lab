@@ -407,16 +407,39 @@ function makeEnemyMaterial(def) {
   });
 }
 
-// ── Permanent skull tag above each enemy ──────────────────────────────────────
-function makeSkullTag(enemy) {
+// ── MGSV-style tag marker — hidden until the player tags the enemy ────────────
+const TAG_DWELL_SECONDS = 1.2; // seconds of continuous aim needed to tag
+
+function makeTagMarker(enemy) {
   const el = document.createElement('div');
-  el.style.cssText = 'width:20px;height:20px;pointer-events:none;';
-  el.innerHTML = '<img src="./icons/skull.svg" width="20" height="20" aria-hidden="true" style="display:block;">';
+  // Red, upside-down tag icon, hidden until tagged
+  el.style.cssText = [
+    'width:22px', 'height:22px',
+    'pointer-events:none',
+    'display:flex', 'align-items:center', 'justify-content:center',
+    'opacity:0',
+    'transition:opacity 0.2s ease',
+    'filter:drop-shadow(0 0 3px rgba(255,40,40,0.7))',
+  ].join(';');
+  el.innerHTML = '<img src="./icons/tag.svg" width="22" height="22" aria-hidden="true"'
+    + ' style="display:block;transform:rotate(180deg);filter:invert(20%) sepia(100%) saturate(700%) hue-rotate(320deg) brightness(110%);">';
   const obj = new CSS2DObject(el);
-  obj.center.set(0.5, 0); // bottom-centre of label anchors to the position point
-  const topY = (enemy.radius * 2 + enemy.sizeMult * 1.2) + 0.45;
+  obj.center.set(0.5, 0);
+  const topY = (enemy.radius * 2 + enemy.sizeMult * 1.2) + 0.55;
   obj.position.set(0, topY, 0);
   enemy.group.add(obj);
+  // Store refs on enemy for loop.js to control
+  enemy._tagEl  = el;
+  enemy._tagObj = obj;
+}
+
+// Call from loop.js when dwell threshold is reached
+export function tagEnemy(enemy) {
+  if (!enemy || enemy.tagged) return;
+  enemy.tagged = true;
+  if (enemy._tagEl) {
+    enemy._tagEl.style.opacity = '1';
+  }
 }
 
 
@@ -447,12 +470,13 @@ function makeEnemy(type, position, index = 0) {
     teleportCooldown: randomRange(1.0, 2.5),
     bobOffset: index * 0.81,
     phase: 1,
+    tagged: false,
     // Grouping fields
     groupSlot: undefined,
     slotTimer: randomRange(0, 0.5), // stagger initial slot assignment
     lastSteer: null,
   };
-  makeSkullTag(enemy);
+  makeTagMarker(enemy);
   return enemy;
 }
 

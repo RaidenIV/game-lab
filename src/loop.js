@@ -10,10 +10,12 @@ import { updateSunPosition } from './lighting.js';
 import { updateChunks } from './terrain.js';
 import { playerGroup, updatePlayer, updateDashStreaks } from './player.js';
 import { updateLaserProjectiles, resolveAimTarget, aimResult } from './weapons.js';
-import { updateEnemies, getEnemyMeshes } from './enemies.js';
+import { updateEnemies, getEnemyMeshes, tagEnemy, TAG_DWELL_SECONDS } from './enemies.js';
 import { updateController } from './input.js';
 
 const clock = new THREE.Clock();
+let _aimDwellEnemy = null;  // enemy currently being aimed at for tagging
+let _aimDwellTimer = 0;     // accumulated aim-on-enemy time
 let _fpsEMA = 60;
 
 let _elapsed = 0;
@@ -92,13 +94,28 @@ export function tick() {
     resolveAimTarget();
   }
 
-  // Reticle hover colour
+  // Reticle hover colour + MGSV dwell tagging
   {
     const reticleEl = document.getElementById('target-reticle');
     const isEnemyHit = !state.paused && aimResult.type === 'enemy';
     if (reticleEl && reticleEl.style.display !== 'none') {
       reticleEl.classList.toggle('reticle-enemy-hover', isEnemyHit);
       reticleEl.classList.toggle('is-targeting-enemy', isEnemyHit);
+    }
+
+    // Dwell tagging: accumulate time while aiming at the same enemy.
+    // Once the threshold is reached, permanently tag that enemy.
+    const aimedEnemy = isEnemyHit ? aimResult.enemy : null;
+    if (aimedEnemy && aimedEnemy === _aimDwellEnemy) {
+      _aimDwellTimer += delta;
+      if (_aimDwellTimer >= TAG_DWELL_SECONDS) {
+        tagEnemy(aimedEnemy);
+        _aimDwellTimer = 0; // reset so we don't repeatedly call tagEnemy
+      }
+    } else {
+      // Reset timer whenever we switch targets or lose sight of an enemy
+      _aimDwellEnemy = aimedEnemy;
+      _aimDwellTimer = 0;
     }
   }
 
