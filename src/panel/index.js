@@ -10,7 +10,7 @@ import {
   playerMat, playerBaseColor, rebuildPlayerGeo, applyPlayerMaterial, applyShieldSettings,
 } from '../player.js';
 import { setFloorVisible, setGridVisible, setFloorColor, setGridColor } from '../terrain.js';
-import { spawnEnemiesFromSettings, clearEnemies } from '../enemies.js';
+import { spawnEnemiesFromSettings, clearEnemies, applyTagSettings } from '../enemies.js';
 import { clearGameplayInput } from '../input.js';
 
 const sidebar = document.getElementById('sidebar');
@@ -985,6 +985,12 @@ function buildScene(body) {
 function buildHUD(body) {
   body.appendChild(toggle('HUD Enabled', 'hudVisible', () => applyHudSettings()));
   body.appendChild(select('Font', 'hudFont', HUD_FONT_OPTIONS, () => applyHudSettings()));
+
+  body.appendChild(subhdr('Enemy Tag'));
+  body.appendChild(toggle('Tag Enabled', 'tagEnabled', () => applyTagSettings()));
+  body.appendChild(colorPicker('Tag Color', 'tagColor', () => applyTagSettings()));
+  body.appendChild(slider({ key: 'tagSize', label: 'Tag Size', min: 8, max: 48, step: 1, dec: 0, onChange: () => applyTagSettings() }));
+  body.appendChild(slider({ key: 'tagDwellTime', label: 'Dwell Time (s)', min: 0.1, max: 5, step: 0.1, dec: 1 }));
 }
 
 function buildEnemies(body) {

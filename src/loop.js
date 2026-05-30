@@ -10,7 +10,7 @@ import { updateSunPosition } from './lighting.js';
 import { updateChunks } from './terrain.js';
 import { playerGroup, updatePlayer, updateDashStreaks } from './player.js';
 import { updateLaserProjectiles, resolveAimTarget, aimResult } from './weapons.js';
-import { updateEnemies, getEnemyMeshes, tagEnemy, TAG_DWELL_SECONDS } from './enemies.js';
+import { updateEnemies, getEnemyMeshes, tagEnemy } from './enemies.js';
 import { updateController } from './input.js';
 
 const clock = new THREE.Clock();
@@ -108,7 +108,7 @@ export function tick() {
     const aimedEnemy = isEnemyHit ? aimResult.enemy : null;
     if (aimedEnemy && aimedEnemy === _aimDwellEnemy) {
       _aimDwellTimer += delta;
-      if (_aimDwellTimer >= TAG_DWELL_SECONDS) {
+      if (_aimDwellTimer >= Math.max(0.1, Number(state.params.tagDwellTime) || 1.2)) {
         tagEnemy(aimedEnemy);
         _aimDwellTimer = 0; // reset so we don't repeatedly call tagEnemy
       }

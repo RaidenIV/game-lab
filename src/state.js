@@ -149,6 +149,12 @@ export const state = {
       "controllerInvertY": false,
       "controllerFireThreshold": 0.5,
       "controllerVibration": true,
+      // Tag system
+      "tagEnabled": true,
+      "tagColor": "#ff2828",
+      "tagSize": 22,
+      "tagDwellTime": 1.2,
+
       // Sound
       "soundMuted": false,
       "soundMusicVolume": 0.4,

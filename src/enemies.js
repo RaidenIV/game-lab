@@ -410,25 +410,69 @@ function makeEnemyMaterial(def) {
 // ── MGSV-style tag marker — hidden until the player tags the enemy ────────────
 export const TAG_DWELL_SECONDS = 1.2; // seconds of continuous aim needed to tag
 
+function getTagColor() {
+  return state.params.tagColor || '#ff2828';
+}
+
+function getTagSize() {
+  return Math.max(8, Math.min(64, Number(state.params.tagSize) || 22));
+}
+
+function buildTagImgStyle(color) {
+  // Convert hex color to a CSS filter that tints the SVG.
+  // We use a known filter chain that produces red; for other colors we blend with hue-rotate.
+  // Simple approach: use the SVG fill attribute override via CSS color-mix isn't supported widely,
+  // so we set a data-color attr and use brightness/sepia/hue-rotate tricks.
+  return 'display:block;transform:rotate(180deg);';
+}
+
+function colorToFilter(hex) {
+  // Parse hex to rgb
+  const r = parseInt(hex.slice(1,3),16)/255;
+  const g = parseInt(hex.slice(3,5),16)/255;
+  const b = parseInt(hex.slice(5,7),16)/255;
+  // We render the SVG as an <img>. To recolor, we use CSS filter.
+  // The tag.svg has a light grey fill, so we:
+  // 1. brightness(0) makes it black
+  // 2. invert(1) makes it white
+  // 3. sepia(1) + hue-rotate + saturate produces a target hue
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h = 0;
+  if (max !== min) {
+    const d = max - min;
+    if (max === r) h = ((g-b)/d + (g<b?6:0))/6;
+    else if (max === g) h = ((b-r)/d + 2)/6;
+    else h = ((r-g)/d + 4)/6;
+  }
+  const hDeg = Math.round(h * 360);
+  // sepia base is ~36deg hue. We rotate from there.
+  const rotate = hDeg - 36;
+  const sat = max === 0 ? 0 : ((max-min)/max);
+  const satPct = Math.round(Math.max(0.3, sat) * 900);
+  const bri = Math.round(Math.max(0.5, (r+g+b)/3 * 2.5) * 100);
+  return `brightness(0) invert(1) sepia(1) saturate(${satPct}%) hue-rotate(${rotate}deg) brightness(${bri}%)`;
+}
+
 function makeTagMarker(enemy) {
+  const color = getTagColor();
+  const size  = getTagSize();
   const el = document.createElement('div');
-  // Red, upside-down tag icon, hidden until tagged
   el.style.cssText = [
-    'width:22px', 'height:22px',
+    `width:${size}px`, `height:${size}px`,
     'pointer-events:none',
     'display:flex', 'align-items:center', 'justify-content:center',
     'opacity:0',
     'transition:opacity 0.2s ease',
-    'filter:drop-shadow(0 0 3px rgba(255,40,40,0.7))',
+    `filter:drop-shadow(0 0 3px ${color}88)`,
   ].join(';');
-  el.innerHTML = '<img src="./icons/tag.svg" width="22" height="22" aria-hidden="true"'
-    + ' style="display:block;transform:rotate(180deg);filter:invert(20%) sepia(100%) saturate(700%) hue-rotate(320deg) brightness(110%);">';
+  const imgFilter = colorToFilter(color);
+  el.innerHTML = `<img src="./icons/tag.svg" width="${size}" height="${size}" aria-hidden="true"`
+    + ` style="display:block;transform:rotate(180deg);filter:${imgFilter};">`;
   const obj = new CSS2DObject(el);
   obj.center.set(0.5, 0);
   const topY = (enemy.radius * 2 + enemy.sizeMult * 1.2) + 0.55;
   obj.position.set(0, topY, 0);
   enemy.group.add(obj);
-  // Store refs on enemy for loop.js to control
   enemy._tagEl  = el;
   enemy._tagObj = obj;
 }
@@ -436,9 +480,34 @@ function makeTagMarker(enemy) {
 // Call from loop.js when dwell threshold is reached
 export function tagEnemy(enemy) {
   if (!enemy || enemy.tagged) return;
+  if (state.params.tagEnabled === false) return;
   enemy.tagged = true;
   if (enemy._tagEl) {
     enemy._tagEl.style.opacity = '1';
+  }
+}
+
+// Refresh all live tag markers when sidebar settings change (color, size).
+export function applyTagSettings() {
+  for (const enemy of enemies) {
+    if (!enemy._tagEl || !enemy._tagObj) continue;
+    const color  = getTagColor();
+    const size   = getTagSize();
+    const imgFilter = colorToFilter(color);
+    // Update wrapper
+    enemy._tagEl.style.width   = `${size}px`;
+    enemy._tagEl.style.height  = `${size}px`;
+    enemy._tagEl.style.filter  = `drop-shadow(0 0 3px ${color}88)`;
+    // Update img
+    const img = enemy._tagEl.querySelector('img');
+    if (img) {
+      img.width  = size;
+      img.height = size;
+      img.style.filter = imgFilter;
+    }
+    // Hide if tag disabled
+    if (!enemy.tagged) return;
+    enemy._tagEl.style.opacity = state.params.tagEnabled === false ? '0' : '1';
   }
 }
 
@@ -481,6 +550,11 @@ function makeEnemy(type, position, index = 0) {
 }
 
 function disposeEnemy(enemy) {
+  // Hide tag element before removing from scene to avoid CSS2D orphan flicker
+  if (enemy._tagEl) {
+    enemy._tagEl.style.opacity = '0';
+    enemy._tagEl.style.display = 'none';
+  }
   scene.remove(enemy.group);
   enemy.material?.dispose?.();
 }
