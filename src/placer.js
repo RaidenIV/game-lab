@@ -235,18 +235,38 @@ function makeBounds(assetId, x, z, ry, scaleSource = null, y = 0) {
   };
 }
 
+function verticalBoundsOverlap(a, b, padding = 0.001) {
+  return a.minY < b.maxY - padding && a.maxY > b.minY + padding;
+}
+
+function getObjectYForBase(asset, scale, baseY) {
+  return Number(baseY || 0) + Number(asset?.yOffset ?? 0.5) * scale.y;
+}
+
 function getStackBaseHeight(sx, sz, assetId, ry, scaleSource = null) {
   const asset = getAsset(assetId);
   const scale = getPlacedScale(scaleSource);
-  const candidate = makeBounds(assetId, sx, sz, ry, scale, Number(asset?.yOffset ?? 0.5) * scale.y);
   const list = state.params.placedObjects || [];
   let baseY = 0;
 
-  for (const obj of list) {
-    const bounds = placedObjectBounds(obj);
-    if (bounds.asset.clip === false) continue;
-    if (!boundsOverlap(candidate, bounds)) continue;
-    baseY = Math.max(baseY, bounds.maxY);
+  // Find the lowest open vertical slot for this footprint instead of always
+  // stacking above the highest overlapping object. This allows a new object to
+  // be placed beneath a floating upper object after its lower support is deleted.
+  for (let guard = 0; guard <= list.length; guard++) {
+    const candidateY = getObjectYForBase(asset, scale, baseY);
+    const candidate = makeBounds(assetId, sx, sz, ry, scale, candidateY);
+    let nextBaseY = baseY;
+
+    for (const obj of list) {
+      const bounds = placedObjectBounds(obj);
+      if (bounds.asset.clip === false) continue;
+      if (!boundsOverlap(candidate, bounds)) continue;
+      if (!verticalBoundsOverlap(candidate, bounds)) continue;
+      nextBaseY = Math.max(nextBaseY, bounds.maxY);
+    }
+
+    if (nextBaseY === baseY) return baseY;
+    baseY = nextBaseY;
   }
 
   return baseY;
@@ -286,9 +306,20 @@ function isInsideLocalFootprint(local, asset, padding = 0, scaleSource = null) {
 function rampSurfaceHeightAt(obj, asset, worldX, worldZ, padding = 0) {
   if (obj.assetId !== 'ramp' && asset.walkable !== true) return null;
   const local = localPointForObject(obj, worldX, worldZ);
-  if (!isInsideLocalFootprint(local, asset, padding, obj)) return null;
+  const { fw, fh } = getLocalFootprint(asset, obj);
 
-  const { fh } = getLocalFootprint(asset, obj);
+  const p = Math.max(0, Number(padding) || 0);
+  const sidePadding = Math.min(p, 0.12);
+  const lowEndPadding = Math.min(p, 0.08);
+  const highEndPadding = 0.02;
+
+  // Do not let the capsule radius turn the vertical back/side faces into
+  // walkable terrain. The player must be on the slope body itself; otherwise the
+  // ramp remains a blocker and contact from the non-ramp side cannot pop the
+  // player onto the top.
+  if (local.x < -fw / 2 - sidePadding || local.x > fw / 2 + sidePadding) return null;
+  if (local.z < -fh / 2 - lowEndPadding || local.z > fh / 2 + highEndPadding) return null;
+
   const t = clamp((local.z + fh / 2) / Math.max(0.001, fh), 0, 1);
   return getClipBottom(obj, asset) + t * getClipHeight(asset, obj);
 }
@@ -322,7 +353,9 @@ export function getWalkablePlacedObjectHeight(position, radius = 0.35, options =
     if (asset.clip === false) continue;
 
     const rampY = rampSurfaceHeightAt(obj, asset, position.x, position.z, Math.max(r, 0.12));
-    if (rampY !== null && rampY > height) {
+    if (rampY !== null
+      && rampY > height
+      && canStandOnObjectTop(currentY, rampY, stepUp, stepDown)) {
       height = rampY;
       continue;
     }
@@ -389,7 +422,15 @@ export function resolveCircleAgainstPlacedObjects(position, radius = 0.45, passe
     for (const obj of list) {
       const bounds = placedObjectBounds(obj);
       if (bounds.asset.clip === false) continue;
-      if (options.walkableRamps === true && bounds.asset.walkable === true) continue;
+      if (options.walkableRamps === true && bounds.asset.walkable === true) {
+        const footY = Number(options.footY);
+        if (Number.isFinite(footY)) {
+          const rampY = rampSurfaceHeightAt(obj, bounds.asset, position.x, position.z, Math.min(r, 0.12));
+          if (rampY !== null && canStandOnObjectTop(footY, rampY, options.stepUp, options.stepDown)) {
+            continue;
+          }
+        }
+      }
       if (Number.isFinite(Number(options.footY)) && bounds.asset.walkable !== true) {
         const footY = Number(options.footY);
         const local = localPointForObject(obj, position.x, position.z);
