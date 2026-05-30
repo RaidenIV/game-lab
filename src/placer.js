@@ -157,6 +157,52 @@ function placedObjectBounds(obj) {
   };
 }
 
+function localPointForObject(obj, worldX, worldZ) {
+  const dx = worldX - obj.x;
+  const dz = worldZ - obj.z;
+  const ry = obj.ry ?? 0;
+  const c = Math.cos(ry);
+  const s = Math.sin(ry);
+  return {
+    x: c * dx - s * dz,
+    z: s * dx + c * dz,
+  };
+}
+
+function isInsideLocalFootprint(local, asset, padding = 0) {
+  const fw = Number(asset?.footprintW ?? 1);
+  const fh = Number(asset?.footprintH ?? 1);
+  return local.x >= -fw / 2 - padding
+    && local.x <=  fw / 2 + padding
+    && local.z >= -fh / 2 - padding
+    && local.z <=  fh / 2 + padding;
+}
+
+function rampSurfaceHeightAt(obj, asset, worldX, worldZ, padding = 0) {
+  if (obj.assetId !== 'ramp' && asset.walkable !== true) return null;
+  const local = localPointForObject(obj, worldX, worldZ);
+  if (!isInsideLocalFootprint(local, asset, padding)) return null;
+
+  const fh = Math.max(0.001, Number(asset?.footprintH ?? 1));
+  const t = clamp((local.z + fh / 2) / fh, 0, 1);
+  return (Number(obj.y) || 0) + t * getClipHeight(asset);
+}
+
+export function getWalkablePlacedObjectHeight(position, radius = 0.35) {
+  const list = state.params.placedObjects || [];
+  if (!list.length || !position) return 0;
+
+  const r = Math.max(0, Number(radius) || 0);
+  let height = 0;
+  for (const obj of list) {
+    const asset = getAsset(obj.assetId);
+    if (asset.clip === false || asset.walkable !== true) continue;
+    const surfaceY = rampSurfaceHeightAt(obj, asset, position.x, position.z, r * 0.35);
+    if (surfaceY !== null && surfaceY > height) height = surfaceY;
+  }
+  return height;
+}
+
 function circleOverlapsBounds(x, z, radius, bounds) {
   const closestX = clamp(x, bounds.minX, bounds.maxX);
   const closestZ = clamp(z, bounds.minZ, bounds.maxZ);
@@ -198,7 +244,7 @@ function resolveCircleAgainstBounds(position, radius, bounds) {
   return true;
 }
 
-export function resolveCircleAgainstPlacedObjects(position, radius = 0.45, passes = 4) {
+export function resolveCircleAgainstPlacedObjects(position, radius = 0.45, passes = 4, options = {}) {
   const list = state.params.placedObjects || [];
   if (!list.length || !position) return false;
 
@@ -211,6 +257,7 @@ export function resolveCircleAgainstPlacedObjects(position, radius = 0.45, passe
     for (const obj of list) {
       const bounds = placedObjectBounds(obj);
       if (bounds.asset.clip === false) continue;
+      if (options.walkableRamps === true && bounds.asset.walkable === true) continue;
       if (resolveCircleAgainstBounds(position, r, bounds)) {
         changed = true;
         clipped = true;
@@ -231,6 +278,11 @@ export function isPlacedObjectHit(position, radius = 0.1) {
   for (const obj of list) {
     const bounds = placedObjectBounds(obj);
     if (bounds.asset.clip === false) continue;
+    if (bounds.asset.walkable === true) {
+      const surfaceY = rampSurfaceHeightAt(obj, bounds.asset, position.x, position.z, r);
+      if (surfaceY !== null && y - r <= surfaceY && y + r >= bounds.minY) return true;
+      continue;
+    }
     if (y + r < bounds.minY || y - r > bounds.maxY) continue;
     if (circleOverlapsBounds(position.x, position.z, r, bounds)) return true;
   }

@@ -3,6 +3,7 @@
 // footprintW and footprintH: grid-cell dimensions of the object base footprint.
 // clip=true objects block player/enemy/projectile movement inside their footprint.
 // height is used for simple vertical projectile clipping.
+// walkable=true lets the player use a clipped asset as terrain instead of a blocker.
 // For an even footprint (e.g. 4x2), the object origin is placed at the centre of
 // that footprint block and the whole block snaps to grid-line boundaries.
 export const ASSET_CATALOGUE = [
@@ -11,5 +12,5 @@ export const ASSET_CATALOGUE = [
   { id: 'cylinder', label: 'Barrel',     color: 0x3a5a3a, yOffset: 0.6, footprintW: 1, footprintH: 1, clip: true, height: 1.2 },
   { id: 'sphere',   label: 'Orb',        color: 0x4488cc, yOffset: 0.5, footprintW: 1, footprintH: 1, clip: true, height: 1.0 },
   { id: 'wall',     label: 'Wall',       color: 0x556677, yOffset: 1.0, footprintW: 4, footprintH: 1, clip: true, height: 2.0 },
-  { id: 'ramp',     label: 'Ramp',       color: 0x445566, yOffset: 0.0, footprintW: 4, footprintH: 2, clip: true, height: 2.0 },
+  { id: 'ramp',     label: 'Ramp',       color: 0x445566, yOffset: 0.0, footprintW: 4, footprintH: 2, clip: true, height: 2.0, walkable: true },
 ];

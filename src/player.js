@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { scene } from './renderer.js';
 import { state } from './state.js';
-import { resolveCircleAgainstPlacedObjects } from './placer.js';
+import { resolveCircleAgainstPlacedObjects, getWalkablePlacedObjectHeight } from './placer.js';
 
 // ── Geometry & material ────────────────────────────────────────────────────────
 // The player is a CapsuleGeometry inside a Group.
@@ -65,7 +65,11 @@ playerGroup.add(playerContactShadow);
 function applyPlayerContactShadow() {
   const p = state.params;
   const contactSize = Math.max(0.82, p.playerRadius * 3.1);
-  playerContactShadow.position.y = 0.008 - playerGroup.position.y;
+  const groundHeight = getWalkablePlacedObjectHeight(
+    playerGroup.position,
+    Math.max(0.25, Number(p.playerRadius) || 0.4)
+  );
+  playerContactShadow.position.y = groundHeight + 0.008 - playerGroup.position.y;
   playerContactShadow.scale.set(contactSize, contactSize, 1);
   playerContactShadow.visible = !!p.shadows && !!p.showFloor;
 }
@@ -519,19 +523,51 @@ export function updateDashStreaks(delta) {
 
 // ── Per-frame update ───────────────────────────────────────────────────────────
 
+function getPlayerCollisionRadius() {
+  return Math.max(0.25, Number(state.params.playerRadius) || 0.4);
+}
+
+function getPlayerGroundHeight() {
+  return getWalkablePlacedObjectHeight(playerGroup.position, getPlayerCollisionRadius());
+}
+
+function syncPlayerGround(maxStepUp = 0.35, maxStepDown = 0.35) {
+  const groundHeight = getPlayerGroundHeight();
+  const y = playerGroup.position.y;
+
+  if (state.jumpGrounded) {
+    const delta = groundHeight - y;
+    if (delta >= -maxStepDown && delta <= maxStepUp) {
+      playerGroup.position.y = groundHeight;
+      state.jumpVelocity = 0;
+    } else if (delta < -maxStepDown) {
+      state.jumpGrounded = false;
+    }
+  } else if (y <= groundHeight) {
+    playerGroup.position.y = groundHeight;
+    state.jumpVelocity = 0;
+    state.jumpGrounded = true;
+  }
+}
+
 function updateJump(delta) {
   const p = state.params;
+  const groundHeight = getPlayerGroundHeight();
 
   if (!p.jumpEnabled) {
     state.jumpQueued = false;
     state.jumpVelocity = 0;
     state.jumpGrounded = true;
-    playerGroup.position.y = 0;
+    playerGroup.position.y = groundHeight;
     return;
   }
 
   const jumpForce = Math.max(0, Number(p.jumpForce) || 0);
   const gravity = Math.max(1, Number(p.jumpGravity) || 26);
+
+  if (state.jumpGrounded && playerGroup.position.y < groundHeight) {
+    playerGroup.position.y = groundHeight;
+  }
 
   if (state.jumpQueued && state.jumpGrounded) {
     state.jumpVelocity = jumpForce;
@@ -539,15 +575,18 @@ function updateJump(delta) {
   }
   state.jumpQueued = false;
 
-  if (!state.jumpGrounded || playerGroup.position.y > 0) {
+  if (!state.jumpGrounded || playerGroup.position.y > groundHeight) {
     state.jumpVelocity -= gravity * delta;
     playerGroup.position.y += state.jumpVelocity * delta;
 
-    if (playerGroup.position.y <= 0) {
-      playerGroup.position.y = 0;
+    if (playerGroup.position.y <= groundHeight) {
+      playerGroup.position.y = groundHeight;
       state.jumpVelocity = 0;
       state.jumpGrounded = true;
     }
+  } else if (state.jumpGrounded) {
+    playerGroup.position.y = groundHeight;
+    state.jumpVelocity = 0;
   }
 }
 
@@ -590,7 +629,8 @@ export function updatePlayer(delta, moveForward, moveRight) {
       ? Math.max(0.1, Math.min(1, Number(state.params.aimSpeedMult) || 0.55))
       : 1;
     playerGroup.position.addScaledVector(_v, speed * aimMult * delta);
-    resolveCircleAgainstPlacedObjects(playerGroup.position, Math.max(0.25, Number(p.playerRadius) || 0.4));
+    resolveCircleAgainstPlacedObjects(playerGroup.position, getPlayerCollisionRadius(), 4, { walkableRamps: true });
+    syncPlayerGround();
   }
 
   // Dash — shunts in a fixed direction at higher speed while dashTimer > 0
@@ -598,7 +638,8 @@ export function updatePlayer(delta, moveForward, moveRight) {
     state.dashTimer -= delta;
     playerGroup.position.x += state.dashVX * p.dashSpeed * delta;
     playerGroup.position.z += state.dashVZ * p.dashSpeed * delta;
-    resolveCircleAgainstPlacedObjects(playerGroup.position, Math.max(0.25, Number(p.playerRadius) || 0.4));
+    resolveCircleAgainstPlacedObjects(playerGroup.position, getPlayerCollisionRadius(), 4, { walkableRamps: true });
+    syncPlayerGround(0.5, 0.2);
     playerMesh.rotation.z   = state.dashVX * -0.35;
     state.dashGhostTimer -= delta;
     if (state.dashGhostTimer <= 0) {
@@ -612,6 +653,9 @@ export function updatePlayer(delta, moveForward, moveRight) {
   if (state.dashCooldown > 0) {
     state.dashCooldown = Math.max(0, state.dashCooldown - delta);
   }
+
+  syncPlayerGround();
+  applyPlayerContactShadow();
 
   // Lean — mesh tilts slightly in direction of travel
   // lerp factor 10*delta reaches ~63% of target in 0.1s — responsive without snapping
