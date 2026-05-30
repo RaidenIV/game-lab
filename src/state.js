@@ -88,6 +88,7 @@ export const state = {
       "shieldGlow": true,
       "shieldBloomIntensity": 0.12,
       "shieldBloomRadius": 1.18,
+      "shieldFresnelPower": 3.0,
       "dashEnabled": true,
       "dashSpeed": 28,
       "dashDuration": 0.18,

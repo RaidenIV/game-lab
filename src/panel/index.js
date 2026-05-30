@@ -174,6 +174,7 @@ const PRESET_SETTINGS = [
   "radarRange": 60,
   "shieldBloomIntensity": 0.12,
   "shieldBloomRadius": 1.18,
+  "shieldFresnelPower": 3.0,
 } },
   { key: 'g4', label: 'G4', path: './presets/G4.json', data: {
   "cameraMode": "third2",
@@ -318,6 +319,7 @@ const PRESET_SETTINGS = [
   "radarRange": 60,
   "shieldBloomIntensity": 0.12,
   "shieldBloomRadius": 1.18,
+  "shieldFresnelPower": 3.0,
 } },
   { key: 'g3', label: 'G3', path: './presets/G3.json', data: {
   "cameraMode": "third2",
@@ -467,6 +469,7 @@ const PRESET_SETTINGS = [
   "radarRange": 60,
   "shieldBloomIntensity": 0.12,
   "shieldBloomRadius": 1.18,
+  "shieldFresnelPower": 3.0,
 } },
   { key: 'default', label: 'Default', path: './presets/default.json', data: {
   "cameraMode": "iso",
@@ -1131,6 +1134,7 @@ function buildShield(body) {
   }));
   body.appendChild(toggle('Glow', 'shieldGlow', () => applyShieldSettings()));
   body.appendChild(slider({ key: 'shieldBloomIntensity', label: 'Bloom Intensity', min: 0, max: 1, step: 0.01, dec: 2, onChange: () => applyShieldSettings() }));
+  body.appendChild(slider({ key: 'shieldFresnelPower', label: 'Rim Power', min: 0.5, max: 8, step: 0.1, dec: 1, onChange: () => applyShieldSettings() }));
   body.appendChild(slider({ key: 'shieldBloomRadius', label: 'Bloom Radius', min: 1.0, max: 3.0, step: 0.01, dec: 2, onChange: () => applyShieldSettings() }));
 }
 

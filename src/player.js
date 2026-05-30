@@ -84,65 +84,83 @@ const shieldGroup = new THREE.Group();
 shieldGroup.name = 'PlayerHexShield';
 playerGroup.add(shieldGroup);
 
-// Shield fill — front-side only so back hemisphere doesn't render through.
-// We use a small positive depth offset so the fill sits just behind the lines.
-const shieldPanelMat = new THREE.MeshBasicMaterial({
-  color: 0x1e7bff,
-  transparent: true,
-  opacity: 0.22,
-  depthWrite: false,
-  side: THREE.FrontSide,
-  blending: THREE.AdditiveBlending,
-  toneMapped: false,
-  polygonOffset: true,
-  polygonOffsetFactor: 1,
-  polygonOffsetUnits: 1,
+// ── Shield materials — Fresnel rim effect ────────────────────────────────────
+// Both the panel fill and the hex lines use a Fresnel shader:
+//   alpha = opacity * pow(1 - dot(normal, viewDir), fresnelPower)
+// This makes the shield nearly invisible head-on and bright at the silhouette rim,
+// exactly like a real energy shield.
+// The panel still writes to the depth buffer so rear hex lines are depth-occluded.
+
+const _shieldFresnelUniforms = () => ({
+  uColor:        { value: new THREE.Color(0x1e7bff) },
+  uOpacity:      { value: 0.22 },
+  uFresnelPower: { value: 3.0 },
+  uRimMin:       { value: 0.0 },
 });
 
-// Shield lines — ShaderMaterial that fades out back-facing fragments using the
-// dot product of the surface normal with the view direction.
-// Only front-facing normals (dot > 0) remain visible, eliminating the rear
-// hemisphere lines that created the overlapping diamond pattern.
-const shieldLineMat = new THREE.ShaderMaterial({
-  uniforms: {
-    uColor:   { value: new THREE.Color(0x1e7bff) },
-    uOpacity: { value: 0.72 },
-    uEdgeFade: { value: 0.15 }, // fraction of sphere edge to fade at silhouette
-  },
-  vertexShader: /* glsl */`
-    varying vec3 vNormal;
-    varying vec3 vViewDir;
-    void main() {
-      vec4 worldPos = modelMatrix * vec4(position, 1.0);
-      vNormal  = normalize(normalMatrix * normal);
-      vViewDir = normalize(cameraPosition - worldPos.xyz);
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: /* glsl */`
-    uniform vec3  uColor;
-    uniform float uOpacity;
-    uniform float uEdgeFade;
-    varying vec3 vNormal;
-    varying vec3 vViewDir;
-    void main() {
-      float ndotv = dot(normalize(vNormal), normalize(vViewDir));
-      // Discard back-facing fragments entirely
-      if (ndotv <= 0.0) discard;
-      // Soft fade at grazing angles (silhouette edge)
-      float alpha = uOpacity * smoothstep(0.0, uEdgeFade, ndotv);
-      gl_FragColor = vec4(uColor * alpha, alpha);
-    }
-  `,
+const _shieldVertexShader = /* glsl */`
+  varying vec3 vNormal;
+  varying vec3 vViewDir;
+  void main() {
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vNormal  = normalize(normalMatrix * normal);
+    vViewDir = normalize(cameraPosition - worldPos.xyz);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const _shieldFragmentShader = /* glsl */`
+  uniform vec3  uColor;
+  uniform float uOpacity;
+  uniform float uFresnelPower;
+  uniform float uRimMin;
+  varying vec3 vNormal;
+  varying vec3 vViewDir;
+  void main() {
+    vec3 N = normalize(vNormal);
+    vec3 V = normalize(vViewDir);
+    float ndotv = abs(dot(N, V)); // abs so back face mirrors front
+    // Fresnel: bright at rim (ndotv≈0), faint at centre (ndotv≈1)
+    float fresnel = pow(1.0 - ndotv, uFresnelPower);
+    fresnel = mix(uRimMin, 1.0, fresnel);
+    float alpha = uOpacity * fresnel;
+    gl_FragColor = vec4(uColor * alpha, alpha);
+  }
+`;
+
+// Panel fill — Fresnel-shaded, depthWrite:true to occlude rear hex lines.
+const shieldPanelMat = new THREE.ShaderMaterial({
+  uniforms: _shieldFresnelUniforms(),
+  vertexShader:   _shieldVertexShader,
+  fragmentShader: _shieldFragmentShader,
   transparent: true,
-  depthWrite: false,
+  depthWrite: true,
   blending: THREE.AdditiveBlending,
   toneMapped: false,
-  side: THREE.FrontSide,
-  polygonOffset: true,
-  polygonOffsetFactor: -1,
-  polygonOffsetUnits: -1,
+  side: THREE.DoubleSide,
 });
+
+// Hex lines — Fresnel-shaded, no depth write (depth test blocks rear lines via panel).
+const shieldLineMat = new THREE.ShaderMaterial({
+  uniforms: {
+    ..._shieldFresnelUniforms(),
+    uOpacity:      { value: 0.72 },
+    uFresnelPower: { value: 2.5 },
+    uRimMin:       { value: 0.05 },
+  },
+  vertexShader:   _shieldVertexShader,
+  fragmentShader: _shieldFragmentShader,
+  transparent: true,
+  depthWrite: false,
+  depthTest: true,
+  blending: THREE.AdditiveBlending,
+  toneMapped: false,
+  side: THREE.DoubleSide,
+  polygonOffset: true,
+  polygonOffsetFactor: -2,
+  polygonOffsetUnits: -2,
+});
+
 
 const shieldGlowMat = new THREE.MeshBasicMaterial({
   color: 0x1e7bff,
@@ -405,14 +423,16 @@ export function applyShieldSettings() {
   shieldGroup.visible = !!p.shieldVisible;
   shieldGroup.position.y = playerMesh.position.y;
 
-  shieldPanelMat.color.set(color);
-  shieldPanelMat.opacity = opacity;
+  const fresnelPower = Math.max(0.5, Math.min(8, Number(state.params.shieldFresnelPower) ?? 3.0));
+
+  shieldPanelMat.uniforms.uColor.value.set(color);
+  shieldPanelMat.uniforms.uOpacity.value = opacity;
+  shieldPanelMat.uniforms.uFresnelPower.value = fresnelPower;
   shieldPanelMat.needsUpdate = true;
 
   shieldLineMat.uniforms.uColor.value.set(color);
-  shieldLineMat.uniforms.uOpacity.value = glowEnabled
-    ? Math.min(1, opacity * 3.2)
-    : Math.min(1, opacity * 1.9);
+  shieldLineMat.uniforms.uOpacity.value = glowEnabled ? Math.min(1, opacity * 3.2) : Math.min(1, opacity * 1.9);
+  shieldLineMat.uniforms.uFresnelPower.value = Math.max(0.5, fresnelPower - 0.5);
   shieldLineMat.needsUpdate = true;
 
   shieldGlowMat.color.set(color);
