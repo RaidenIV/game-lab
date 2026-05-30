@@ -453,6 +453,31 @@ function colorToFilter(hex) {
   return `brightness(0) invert(1) sepia(1) saturate(${satPct}%) hue-rotate(${rotate}deg) brightness(${bri}%)`;
 }
 
+function getTagThickness() {
+  return Math.max(0, Math.min(20, Number(state.params.tagThickness) ?? 3));
+}
+
+function getTagShadow() {
+  return Math.max(0, Math.min(30, Number(state.params.tagShadow) ?? 4));
+}
+
+function buildTagFilter(color) {
+  const thickness = getTagThickness();
+  const shadow    = getTagShadow();
+  const parts = [];
+  // Outline: multiple zero-offset drop-shadows at the thickness radius create a visible stroke
+  if (thickness > 0) {
+    parts.push(`drop-shadow(0 0 ${thickness}px ${color})`);
+    parts.push(`drop-shadow(0 0 ${Math.ceil(thickness * 0.5)}px ${color})`);
+  }
+  // Shadow: offset dark shadow for depth and legibility
+  if (shadow > 0) {
+    parts.push(`drop-shadow(0 ${Math.ceil(shadow * 0.5)}px ${shadow}px rgba(0,0,0,0.85))`);
+  }
+  return parts.join(' ') || 'none';
+}
+
+
 function makeTagMarker(enemy) {
   const color = getTagColor();
   const size  = getTagSize();
@@ -463,7 +488,7 @@ function makeTagMarker(enemy) {
     'display:flex', 'align-items:center', 'justify-content:center',
     'opacity:0',
     'transition:opacity 0.2s ease',
-    `filter:drop-shadow(0 0 3px ${color}88)`,
+    `filter:${buildTagFilter(color)}`,
   ].join(';');
   const imgFilter = colorToFilter(color);
   el.innerHTML = `<img src="./icons/tag.svg" width="${size}" height="${size}" aria-hidden="true"`
@@ -497,7 +522,7 @@ export function applyTagSettings() {
     // Update wrapper
     enemy._tagEl.style.width   = `${size}px`;
     enemy._tagEl.style.height  = `${size}px`;
-    enemy._tagEl.style.filter  = `drop-shadow(0 0 3px ${color}88)`;
+    enemy._tagEl.style.filter  = buildTagFilter(color);
     // Update img
     const img = enemy._tagEl.querySelector('img');
     if (img) {

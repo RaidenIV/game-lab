@@ -991,6 +991,8 @@ function buildHUD(body) {
   body.appendChild(colorPicker('Tag Color', 'tagColor', () => applyTagSettings()));
   body.appendChild(slider({ key: 'tagSize', label: 'Tag Size', min: 8, max: 48, step: 1, dec: 0, onChange: () => applyTagSettings() }));
   body.appendChild(slider({ key: 'tagDwellTime', label: 'Dwell Time (s)', min: 0.1, max: 5, step: 0.1, dec: 1 }));
+  body.appendChild(slider({ key: 'tagThickness', label: 'Thickness', min: 0, max: 20, step: 0.5, dec: 1, onChange: () => applyTagSettings() }));
+  body.appendChild(slider({ key: 'tagShadow', label: 'Shadow', min: 0, max: 30, step: 0.5, dec: 1, onChange: () => applyTagSettings() }));
 }
 
 function buildEnemies(body) {
