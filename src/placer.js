@@ -141,29 +141,29 @@ function clamp(v, min, max) {
 // Rotation (multiples of π/2) swaps W↔H for odd rotations.
 //
 // Snapping rule:
-//   • Odd footprint dimension (1 cell wide) → snap origin to cell centre: floor(v)+0.5
-//   • Even footprint dimension (e.g. 4 cells wide) → snap origin to grid line
-//     multiple of W: round(v/W)*W  so base edges land exactly on grid lines
+//   • Odd whole-cell footprints centre inside grid cells: floor(v)+0.5
+//   • Even whole-cell footprints centre on grid lines: round(v)
+//   • Half-cell/scaled footprints snap to half-grid increments.
 //
-// This places the object's centre at the midpoint of its W×H cell block, with
-// all base edges flush with grid lines.
+// This keeps object base edges aligned to the grid while still allowing large
+// objects such as 4×2 ramps to move in one-grid-unit increments.
 
 function snapAxis(v, footprintDim) {
   const dim = Math.max(0.25, Number(footprintDim) || 1);
   const rounded = Math.round(dim);
 
   if (Math.abs(dim - rounded) > 0.001) {
-    // Non-cell-sized scaled shapes keep their centre on half-cell increments.
+    // Half-cell/scaled shapes keep their centre on half-cell increments.
     return Math.round(v * 2) / 2;
   }
 
   if (rounded % 2 === 1) {
-    // Odd-width: centre inside the middle cell
+    // Odd-width: centre inside the middle cell.
     return Math.floor(v) + 0.5;
-  } else {
-    // Even-width: align to multiples of footprintDim
-    return Math.round(v / rounded) * rounded;
   }
+
+  // Even-width: centre on any grid line, not only multiples of the footprint.
+  return Math.round(v);
 }
 
 function getLocalFootprint(asset, scaleSource = null) {
