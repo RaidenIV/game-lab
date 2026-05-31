@@ -917,9 +917,10 @@ function destroyEnemy(enemy) {
   triggerCameraShake(enemy.group.position, shakeForce);
   spawnEnemyCorpse(enemy, cfg);
   spawnDestructionParticles(enemy, cfg);
-  if (enemy.type === ENEMY_TYPE.SPLITTER) spawnSplitChildren(enemy);
-  const idx = enemies.indexOf(enemy);
-  if (idx !== -1) enemies.splice(idx, 1);
+  if (!enemy.isAlly && enemy.type === ENEMY_TYPE.SPLITTER) spawnSplitChildren(enemy);
+  const list = enemy.isAlly ? allies : enemies;
+  const idx = list.indexOf(enemy);
+  if (idx !== -1) list.splice(idx, 1);
   disposeEnemy(enemy);
 }
 
@@ -951,14 +952,32 @@ export function spawnAlliesFromSettings() {
   return allies.length;
 }
 
-function getEffectiveBehavior(enemy) {
-  const behavior = state.params.enemyBehavior;
-  return behavior || enemy.def.defaultBehavior || 'rush';
+function getEffectiveBehavior(npc) {
+  const key = npc?.isAlly ? 'allyBehavior' : 'enemyBehavior';
+  const behavior = state.params[key];
+  return behavior || npc?.def?.defaultBehavior || 'rush';
 }
 
-function getEffectiveWeapon(enemy) {
-  const weapon = state.params.enemyWeaponType;
-  return weapon || enemy.def.defaultWeapon || 'contact';
+function getEffectiveWeapon(npc) {
+  const key = npc?.isAlly ? 'allyWeaponType' : 'enemyWeaponType';
+  const weapon = state.params[key];
+  return weapon || npc?.def?.defaultWeapon || 'contact';
+}
+
+function getNpcDamage(npc) {
+  const key = npc?.isAlly ? 'allyDamage' : 'enemyDamage';
+  return Math.max(0, Number(state.params[key]) || 0);
+}
+
+function getNpcMoveSpeed(npc) {
+  const key = npc?.isAlly ? 'allyMoveSpeed' : 'enemyMoveSpeed';
+  const configuredSpeed = Number(state.params[key]);
+  return Math.max(0, Number.isFinite(configuredSpeed) ? configuredSpeed : BASE_SPEED);
+}
+
+function getNpcAwarenessRange(npc) {
+  const key = npc?.isAlly ? 'allyAwarenessRange' : 'enemyAwarenessRange';
+  return Math.max(1, Number(state.params[key]) || 40);
 }
 
 function applyPlayerDamage(amount) {
@@ -991,10 +1010,12 @@ function syncPlayerHud() {
 }
 
 function damageEnemy(enemy, amount) {
+  if (!enemy) return;
   enemy.spawnFlashTimer = Math.max(enemy.spawnFlashTimer, 0.12);
   enemy.material.emissive.set(0xffffff);
   enemy.material.emissiveIntensity = 0.45;
-  if (!state.params.enemyInvincible) enemy.hp -= Math.max(0, Number(amount) || 0);
+  const invincible = enemy.isAlly ? state.params.allyInvincible : state.params.enemyInvincible;
+  if (!invincible) enemy.hp -= Math.max(0, Number(amount) || 0);
   if (enemy.hp <= 0) destroyEnemy(enemy);
 }
 
@@ -1079,14 +1100,15 @@ function applyExplosionSplashDamage() {
 }
 
 // ── Grouped movement (GROUPING.md) ────────────────────────────────────────────
-function updateEnemyMovement(enemy, delta) {
-  const behavior = getEffectiveBehavior(enemy);
-  const playerPos = playerGroup.position;
+function updateEnemyMovement(enemy, delta, targetNpc = null) {
+  const baseBehavior = getEffectiveBehavior(enemy);
+  const behavior = targetNpc && baseBehavior === 'guard' ? 'rush' : baseBehavior;
+  const targetPos = targetNpc?.group?.position || playerGroup.position;
 
-  _tmpVec.set(playerPos.x - enemy.group.position.x, 0, playerPos.z - enemy.group.position.z);
+  _tmpVec.set(targetPos.x - enemy.group.position.x, 0, targetPos.z - enemy.group.position.z);
   const dist = Math.max(0.001, _tmpVec.length());
-  const toPlayerX = _tmpVec.x / dist;
-  const toPlayerZ = _tmpVec.z / dist;
+  const toTargetX = _tmpVec.x / dist;
+  const toTargetZ = _tmpVec.z / dist;
 
   let speedMult = enemy.def.speedMult || 1;
   let seekX = 0, seekZ = 0;
@@ -1095,41 +1117,41 @@ function updateEnemyMovement(enemy, delta) {
 
   if (behavior === 'orbit') {
     // Tangential movement + radial correction
-    const tangX = -toPlayerZ, tangZ = toPlayerX;
+    const tangX = -toTargetZ, tangZ = toTargetX;
     const radialBias = clamp((dist - 6.5) / 2.5, -1, 1) * 0.6;
-    seekX = tangX * 0.9 + toPlayerX * radialBias;
-    seekZ = tangZ * 0.9 + toPlayerZ * radialBias;
+    seekX = tangX * 0.9 + toTargetX * radialBias;
+    seekZ = tangZ * 0.9 + toTargetZ * radialBias;
     speedMult = 1.05;
   } else if (behavior === 'keepDistance') {
     const desired = 14;
-    if (dist < desired) { seekX = -toPlayerX; seekZ = -toPlayerZ; speedMult = 1.05; }
-    else if (dist > desired + 2) { seekX = toPlayerX; seekZ = toPlayerZ; speedMult = 0.85; }
+    if (dist < desired) { seekX = -toTargetX; seekZ = -toTargetZ; speedMult = 1.05; }
+    else if (dist > desired + 2) { seekX = toTargetX; seekZ = toTargetZ; speedMult = 0.85; }
   } else if (behavior === 'teleport') {
     enemy.teleportCooldown = Math.max(0, enemy.teleportCooldown - delta);
     if (enemy.teleportCooldown <= 0 && dist < 5.5) {
       const angle = Math.random() * Math.PI * 2;
       const r = randomRange(9, 14);
-      enemy.group.position.x = playerPos.x + Math.cos(angle) * r;
-      enemy.group.position.z = playerPos.z + Math.sin(angle) * r;
+      enemy.group.position.x = targetPos.x + Math.cos(angle) * r;
+      enemy.group.position.z = targetPos.z + Math.sin(angle) * r;
       enemy.teleportCooldown = 4;
       return;
     }
-    seekX = toPlayerX; seekZ = toPlayerZ;
+    seekX = toTargetX; seekZ = toTargetZ;
   } else if (behavior === 'bossPhase') {
     const ratio = enemy.hp / Math.max(1, enemy.maxHp);
     enemy.phase = ratio <= 0.33 ? 3 : ratio <= 0.66 ? 2 : 1;
     speedMult = enemy.phase === 3 ? 1.08 : enemy.phase === 2 ? 0.98 : 0.9;
-    seekX = toPlayerX; seekZ = toPlayerZ;
+    seekX = toTargetX; seekZ = toTargetZ;
   } else {
-    seekX = toPlayerX; seekZ = toPlayerZ;
+    seekX = toTargetX; seekZ = toTargetZ;
   }
 
   // Normalise seek
   const seekLen = Math.hypot(seekX, seekZ);
   if (seekLen > 0.001) { seekX /= seekLen; seekZ /= seekLen; }
 
-  // Update group slot assignment
-  assignEnemyGroupSlot(enemy, playerPos, delta);
+  // Update group slot assignment around the current target.
+  assignEnemyGroupSlot(enemy, targetPos, delta);
 
   // Separation force
   const queryR = enemy.radius * getSpacingMultiplier(enemy) + ENEMY_GROUPING.separation.queryPadding;
@@ -1139,7 +1161,7 @@ function updateEnemyMovement(enemy, delta) {
     : { x: 0, z: 0 };
 
   // Slot bias
-  const slot = computeSlotBias(enemy, playerPos);
+  const slot = computeSlotBias(enemy, targetPos);
 
   // Combine with archetype weights
   const w = ARCHETYPE_WEIGHTS[enemy.type] ?? { seek: 0.75, slot: 0.25, separation: 1.0 };
@@ -1152,15 +1174,38 @@ function updateEnemyMovement(enemy, delta) {
   moveX = smoothed.x; moveZ = smoothed.z;
 
   // Apply movement
-  const configuredSpeed = Number(state.params.enemyMoveSpeed);
-  const baseSpeed = Math.max(0, Number.isFinite(configuredSpeed) ? configuredSpeed : BASE_SPEED);
+  const baseSpeed = getNpcMoveSpeed(enemy);
   enemy.group.position.x += moveX * baseSpeed * speedMult * delta;
   enemy.group.position.z += moveZ * baseSpeed * speedMult * delta;
   resolveCircleAgainstPlacedObjects(enemy.group.position, enemy.radius);
 }
 
-function updateContactDamage(enemy, delta) {
+function updateContactDamage(enemy, delta, targetNpc = null) {
   if (getEffectiveWeapon(enemy) === 'none') return;
+
+  if (targetNpc) {
+    _tmpVec.set(
+      targetNpc.group.position.x - enemy.group.position.x, 0,
+      targetNpc.group.position.z - enemy.group.position.z,
+    );
+    const dist = Math.max(0.001, _tmpVec.length());
+    const minDist = enemy.radius + Math.max(0.35, targetNpc.radius || 0.4);
+    if (dist > minDist) { enemy.contactCooldown = Math.max(0, enemy.contactCooldown - delta); return; }
+    const normal = _tmpVec.multiplyScalar(1 / dist);
+    const push = (minDist - dist) * 0.5;
+    enemy.group.position.addScaledVector(normal, -push);
+    targetNpc.group.position.addScaledVector(normal, push * 0.7);
+    resolveCircleAgainstPlacedObjects(enemy.group.position, enemy.radius);
+    resolveCircleAgainstPlacedObjects(targetNpc.group.position, targetNpc.radius || 0.4);
+    enemy.contactCooldown = Math.max(0, enemy.contactCooldown - delta);
+    if (enemy.contactCooldown <= 0) {
+      enemy.contactCooldown = CONTACT_COOLDOWN;
+      damageEnemy(targetNpc, getNpcDamage(enemy));
+    }
+    return;
+  }
+
+  if (enemy.isAlly) return;
   const playerRadius = Math.max(0.35, Number(state.params.playerRadius) || 0.4);
   _tmpVec.set(
     playerGroup.position.x - enemy.group.position.x, 0,
@@ -1176,22 +1221,27 @@ function updateContactDamage(enemy, delta) {
   enemy.contactCooldown = Math.max(0, enemy.contactCooldown - delta);
   if (enemy.contactCooldown <= 0) {
     enemy.contactCooldown = CONTACT_COOLDOWN;
-    applyPlayerDamage(Number(state.params.enemyDamage) || 0);
+    applyPlayerDamage(getNpcDamage(enemy));
   }
 }
 
-function fireEnemyBullet(enemy) {
+function fireEnemyBullet(enemy, targetNpc = null) {
   const weapon = getEffectiveWeapon(enemy);
   if (weapon === 'none' || weapon === 'contact') return;
+  if (enemy.isAlly && !targetNpc) return;
+
   const color = weapon === 'sniper' ? 0xd975ff : weapon === 'laser' ? 0xff3333 : enemy.def.projectileColor;
   const mesh = new THREE.Mesh(_enemyBulletGeo, getBulletMaterial(color));
-  mesh.name = 'EnemyProjectile';
+  mesh.name = enemy.isAlly ? 'AllyProjectile' : 'EnemyProjectile';
   mesh.position.copy(enemy.group.position);
   mesh.position.y = enemy.mesh.position.y;
+
+  const targetPosition = targetNpc?.group?.position || playerGroup.position;
+  const targetY = targetNpc?.mesh?.position?.y ?? Math.max(0.6, Number(state.params.playerRadius) || 0.4);
   _bulletDir.set(
-    playerGroup.position.x - enemy.group.position.x,
-    Math.max(0.6, Number(state.params.playerRadius) || 0.4) - mesh.position.y,
-    playerGroup.position.z - enemy.group.position.z,
+    targetPosition.x - enemy.group.position.x,
+    targetY - mesh.position.y,
+    targetPosition.z - enemy.group.position.z,
   );
   if (_bulletDir.lengthSq() < 0.0001) _bulletDir.set(0, 0, 1);
   _bulletDir.normalize();
@@ -1200,18 +1250,24 @@ function fireEnemyBullet(enemy) {
   scene.add(mesh);
   const speedMult = weapon === 'sniper' ? 1.35 : weapon === 'laser' ? 1.6 : 1.0;
   enemyBullets.push({
-    mesh, dir: _bulletDir.clone(), life: ENEMY_BULLET_LIFETIME,
-    speed: ENEMY_BULLET_SPEED * speedMult, damage: Number(state.params.enemyDamage) || 0,
+    mesh,
+    dir: _bulletDir.clone(),
+    life: ENEMY_BULLET_LIFETIME,
+    speed: ENEMY_BULLET_SPEED * speedMult,
+    damage: getNpcDamage(enemy),
+    ownerTeam: enemy.isAlly ? 'ally' : 'enemy',
+    targetTeam: targetNpc ? (targetNpc.isAlly ? 'ally' : 'enemy') : 'player',
   });
 }
 
-function updateEnemyShooting(enemy, delta) {
+function updateEnemyShooting(enemy, delta, targetNpc = null) {
   const weapon = getEffectiveWeapon(enemy);
   const interval = FIRE_RATE_SECONDS[weapon];
   if (!interval || enemy.spawnFlashTimer > 0) return;
+  if (enemy.isAlly && !targetNpc) return;
   enemy.shootTimer -= delta;
   if (enemy.shootTimer <= 0) {
-    fireEnemyBullet(enemy);
+    fireEnemyBullet(enemy, targetNpc);
     enemy.shootTimer = interval * randomRange(0.82, 1.18);
   }
 }
@@ -1228,14 +1284,36 @@ function updateEnemyBullets(delta) {
       disposeEnemyBullet(bullet);
       continue;
     }
-    _tmpVec.copy(playerGroup.position);
-    _tmpVec.y += Math.max(0.55, playerRadius + 0.35);
-    if (bullet.mesh.position.distanceTo(_tmpVec) <= playerHitRadius) {
-      applyPlayerDamage(bullet.damage);
-      enemyBullets.splice(i, 1);
-      disposeEnemyBullet(bullet);
-      continue;
+
+    if ((bullet.targetTeam || 'player') === 'player') {
+      _tmpVec.copy(playerGroup.position);
+      _tmpVec.y += Math.max(0.55, playerRadius + 0.35);
+      if (bullet.mesh.position.distanceTo(_tmpVec) <= playerHitRadius) {
+        applyPlayerDamage(bullet.damage);
+        enemyBullets.splice(i, 1);
+        disposeEnemyBullet(bullet);
+        continue;
+      }
+    } else {
+      const targets = bullet.targetTeam === 'ally' ? allies : enemies;
+      let hit = false;
+      for (let t = targets.length - 1; t >= 0; t--) {
+        const target = targets[t];
+        if (!target?.group) continue;
+        _tmpVec.copy(target.group.position);
+        _tmpVec.y = target.mesh.position.y;
+        const hitRadius = Math.max(0.22, target.radius || 0.4) + 0.18;
+        if (bullet.mesh.position.distanceTo(_tmpVec) <= hitRadius) {
+          damageEnemy(target, bullet.damage);
+          enemyBullets.splice(i, 1);
+          disposeEnemyBullet(bullet);
+          hit = true;
+          break;
+        }
+      }
+      if (hit) continue;
     }
+
     if (bullet.life <= 0) {
       enemyBullets.splice(i, 1);
       disposeEnemyBullet(bullet);
@@ -1244,83 +1322,102 @@ function updateEnemyBullets(delta) {
 }
 
 
-function findNearestEnemy(position) {
+function findNearestEnemy(position, maxRange = Infinity) {
   let nearest = null;
-  let best = Infinity;
+  let best = Math.max(0, maxRange) ** 2;
   for (const enemy of enemies) {
     const dx = enemy.group.position.x - position.x;
     const dz = enemy.group.position.z - position.z;
     const d2 = dx * dx + dz * dz;
-    if (d2 < best) { best = d2; nearest = enemy; }
+    if (d2 <= best) { best = d2; nearest = enemy; }
   }
   return nearest;
 }
 
-function updateAllyMovement(ally, delta, elapsedTime, index) {
-  const behavior = state.params.allyBehavior || 'guard';
-  const speed = Math.max(0, Number(state.params.allyMoveSpeed) || BASE_SPEED);
-  const playerPos = playerGroup.position;
-  let moveX = 0, moveZ = 0;
+function findNearestAlly(position, maxRange = Infinity) {
+  let nearest = null;
+  let best = Math.max(0, maxRange) ** 2;
+  for (const ally of allies) {
+    const dx = ally.group.position.x - position.x;
+    const dz = ally.group.position.z - position.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 <= best) { best = d2; nearest = ally; }
+  }
+  return nearest;
+}
 
-  if (behavior === 'rush' && enemies.length) {
-    const target = findNearestEnemy(ally.group.position);
-    if (target) {
-      const dx = target.group.position.x - ally.group.position.x;
-      const dz = target.group.position.z - ally.group.position.z;
+function findNearestOpponent(npc) {
+  const range = getNpcAwarenessRange(npc);
+  return npc?.isAlly
+    ? findNearestEnemy(npc.group.position, range)
+    : findNearestAlly(npc.group.position, range);
+}
+
+function updateAllyMovement(ally, delta, elapsedTime, index, target = null) {
+  if (target) {
+    updateEnemyMovement(ally, delta, target);
+  } else {
+    const behavior = state.params.allyBehavior || 'guard';
+    const speed = Math.max(0, Number(state.params.allyMoveSpeed) || BASE_SPEED);
+    const playerPos = playerGroup.position;
+    let moveX = 0, moveZ = 0;
+
+    if (behavior === 'orbit') {
+      const dx = playerPos.x - ally.group.position.x;
+      const dz = playerPos.z - ally.group.position.z;
       const d = Math.max(0.001, Math.hypot(dx, dz));
-      if (d > Math.max(1.2, ally.radius + (target.radius || 0.45))) {
-        moveX = dx / d; moveZ = dz / d;
+      const radial = clamp((d - 4.5) / 2.0, -1, 1) * 0.7;
+      moveX = (-dz / d) * 0.9 + (dx / d) * radial;
+      moveZ = ( dx / d) * 0.9 + (dz / d) * radial;
+    } else if (behavior === 'teleport') {
+      const dx = playerPos.x - ally.group.position.x;
+      const dz = playerPos.z - ally.group.position.z;
+      const d = Math.hypot(dx, dz);
+      if (d > 16) {
+        const angle = (index / Math.max(1, allies.length)) * Math.PI * 2;
+        const r = 3.2 + (index % 3) * 0.7;
+        ally.group.position.x = playerPos.x + Math.cos(angle) * r;
+        ally.group.position.z = playerPos.z + Math.sin(angle) * r;
       }
+    } else {
+      const slotAngle = (index / Math.max(1, allies.length)) * Math.PI * 2;
+      const desiredRadius = behavior === 'keepDistance' ? 6.5 : 3.25 + (index % 3) * 0.45;
+      const targetX = playerPos.x + Math.cos(slotAngle) * desiredRadius;
+      const targetZ = playerPos.z + Math.sin(slotAngle) * desiredRadius;
+      const dx = targetX - ally.group.position.x;
+      const dz = targetZ - ally.group.position.z;
+      const d = Math.max(0.001, Math.hypot(dx, dz));
+      if (d > 0.2) { moveX = dx / d; moveZ = dz / d; }
     }
-  } else if (behavior === 'orbit') {
-    const dx = playerPos.x - ally.group.position.x;
-    const dz = playerPos.z - ally.group.position.z;
-    const d = Math.max(0.001, Math.hypot(dx, dz));
-    const radial = clamp((d - 4.5) / 2.0, -1, 1) * 0.7;
-    moveX = (-dz / d) * 0.9 + (dx / d) * radial;
-    moveZ = ( dx / d) * 0.9 + (dz / d) * radial;
-  } else if (behavior === 'teleport') {
-    const dx = playerPos.x - ally.group.position.x;
-    const dz = playerPos.z - ally.group.position.z;
-    const d = Math.hypot(dx, dz);
-    if (d > 16) {
-      const angle = (index / Math.max(1, allies.length)) * Math.PI * 2;
-      const r = 3.2 + (index % 3) * 0.7;
-      ally.group.position.x = playerPos.x + Math.cos(angle) * r;
-      ally.group.position.z = playerPos.z + Math.sin(angle) * r;
+
+    const len = Math.hypot(moveX, moveZ);
+    if (len > 0.001) {
+      ally.group.position.x += (moveX / len) * speed * delta;
+      ally.group.position.z += (moveZ / len) * speed * delta;
+      ally.group.rotation.y = Math.atan2(moveX, moveZ);
+    } else {
+      ally.group.rotation.y = Math.atan2(playerPos.x - ally.group.position.x, playerPos.z - ally.group.position.z);
     }
-  } else {
-    const slotAngle = (index / Math.max(1, allies.length)) * Math.PI * 2;
-    const desiredRadius = behavior === 'keepDistance' ? 6.5 : 3.25 + (index % 3) * 0.45;
-    const targetX = playerPos.x + Math.cos(slotAngle) * desiredRadius;
-    const targetZ = playerPos.z + Math.sin(slotAngle) * desiredRadius;
-    const dx = targetX - ally.group.position.x;
-    const dz = targetZ - ally.group.position.z;
-    const d = Math.max(0.001, Math.hypot(dx, dz));
-    if (d > 0.2) { moveX = dx / d; moveZ = dz / d; }
+    resolveCircleAgainstPlacedObjects(ally.group.position, ally.radius);
   }
 
-  const len = Math.hypot(moveX, moveZ);
-  if (len > 0.001) {
-    ally.group.position.x += (moveX / len) * speed * delta;
-    ally.group.position.z += (moveZ / len) * speed * delta;
-    ally.group.rotation.y = Math.atan2(moveX, moveZ);
-  } else {
-    const target = findNearestEnemy(ally.group.position);
-    const look = target?.group?.position || playerPos;
-    ally.group.rotation.y = Math.atan2(look.x - ally.group.position.x, look.z - ally.group.position.z);
+  if (target) {
+    ally.group.rotation.y = Math.atan2(target.group.position.x - ally.group.position.x, target.group.position.z - ally.group.position.z);
   }
-  resolveCircleAgainstPlacedObjects(ally.group.position, ally.radius);
   ally.spawnFlashTimer = Math.max(0, ally.spawnFlashTimer - delta);
-  ally.mesh.position.y = (BASE_RADIUS + BASE_LENGTH / 2) * ally.sizeMult
-    + Math.sin(elapsedTime * 3 + ally.bobOffset) * 0.05;
+  ally.mesh.position.y = (BASE_RADIUS + BASE_LENGTH / 2) * ally.sizeMult;
   ally.material.opacity = ally.spawnFlashTimer > 0 ? clamp(1 - ally.spawnFlashTimer / 0.65, 0.25, 1) : 1;
   ally.material.transparent = ally.spawnFlashTimer > 0;
 }
 
+
 function updateAllies(delta, elapsedTime = 0) {
   for (let i = allies.length - 1; i >= 0; i--) {
-    updateAllyMovement(allies[i], delta, elapsedTime, i);
+    const ally = allies[i];
+    const target = findNearestOpponent(ally);
+    updateAllyMovement(ally, delta, elapsedTime, i, target);
+    updateEnemyShooting(ally, delta, target);
+    updateContactDamage(ally, delta, target);
   }
 }
 
@@ -1336,15 +1433,16 @@ export function updateEnemies(delta, elapsedTime = 0) {
   for (let i = enemies.length - 1; i >= 0; i--) {
     const enemy = enemies[i];
     enemy.spawnFlashTimer = Math.max(0, enemy.spawnFlashTimer - delta);
-    updateEnemyMovement(enemy, delta);
-    updateEnemyShooting(enemy, delta);
-    updateContactDamage(enemy, delta);
+    const target = findNearestOpponent(enemy);
+    updateEnemyMovement(enemy, delta, target);
+    updateEnemyShooting(enemy, delta, target);
+    updateContactDamage(enemy, delta, target);
 
-    const dx = playerGroup.position.x - enemy.group.position.x;
-    const dz = playerGroup.position.z - enemy.group.position.z;
+    const lookPos = target?.group?.position || playerGroup.position;
+    const dx = lookPos.x - enemy.group.position.x;
+    const dz = lookPos.z - enemy.group.position.z;
     enemy.group.rotation.y = Math.atan2(dx, dz);
-    enemy.mesh.position.y = (BASE_RADIUS + BASE_LENGTH / 2) * enemy.sizeMult
-      + Math.sin(elapsedTime * 3 + enemy.bobOffset) * 0.05;
+    enemy.mesh.position.y = (BASE_RADIUS + BASE_LENGTH / 2) * enemy.sizeMult;
 
     const flash = enemy.spawnFlashTimer > 0;
     enemy.material.opacity = flash ? clamp(1 - enemy.spawnFlashTimer / 0.65, 0.25, 1) : 1;
