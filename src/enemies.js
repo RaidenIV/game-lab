@@ -861,7 +861,7 @@ function spawnEnemyCorpse(enemy, cfg = getDestructionConfig(enemy)) {
   enemyCorpses.push({
     mesh,
     vx: Math.cos(yaw) * speed,
-    vy: cfg.physics === 'gravity' ? 1.2 + Math.random() * 1.4 : 0.15 + Math.random() * 0.35,
+    vy: cfg.physics === 'gravity' ? 0.12 + Math.random() * 0.28 : 0.12 + Math.random() * 0.22,
     vz: Math.sin(yaw) * speed,
     rx: (Math.random() - 0.5) * 4.2,
     ry: (Math.random() - 0.5) * 4.2,
@@ -870,7 +870,8 @@ function spawnEnemyCorpse(enemy, cfg = getDestructionConfig(enemy)) {
     maxLife: cfg.despawnTime,
     radius: Math.max(0.25, BASE_RADIUS * enemy.sizeMult),
     physics: cfg.physics,
-    grounded: false,
+    grounded: true,
+    landed: true,
   });
 }
 
@@ -935,12 +936,13 @@ function updateEnemyCorpses(delta) {
       }
 
       const floorHit = alignCorpseToFloor(corpse, {
-        snapDown: corpse.grounded === true && corpse.vy <= 0.08,
-        tolerance: Math.max(0.2, (corpse.radius || 0.35) * 2.4),
+        snapDown: corpse.landed === true,
+        tolerance: Math.max(0.45, (corpse.radius || 0.35) * 3.2),
       });
       if (floorHit !== 0) {
+        corpse.landed = true;
         if (floorHit > 0) {
-          corpse.vy = Math.abs(corpse.vy) > 0.22 ? Math.abs(corpse.vy) * 0.18 : 0;
+          corpse.vy = Math.abs(corpse.vy) > 0.22 ? Math.abs(corpse.vy) * 0.12 : 0;
         } else {
           corpse.vy = Math.min(corpse.vy, 0);
         }
