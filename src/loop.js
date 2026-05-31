@@ -9,7 +9,7 @@ import { state } from './state.js';
 import { updateSunPosition } from './lighting.js';
 import { updateChunks } from './terrain.js';
 import { playerGroup, updatePlayer, updateDashStreaks } from './player.js';
-import { updateLaserProjectiles, resolveAimTarget, aimResult } from './weapons.js';
+import { updateLaserProjectiles, resolveAimTarget, aimResult, updateRifle } from './weapons.js';
 import { updateEnemies, getEnemyMeshes, tagEnemy, getEnemies, getAllies } from './enemies.js';
 import { updatePlacer } from './placer.js';
 import { updateController } from './input.js';
@@ -225,6 +225,7 @@ export function tick() {
   // the exact same result. Resolves camera ray → enemy volume or fallback point.
   if (!state.paused) {
     resolveAimTarget();
+    updateRifle();
   }
 
   // Reticle hover colour + MGSV dwell tagging
