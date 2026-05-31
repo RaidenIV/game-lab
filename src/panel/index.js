@@ -398,6 +398,7 @@ const PRESET_SETTINGS = [
   "destructionRusherColor": "#ff0000",
   "destructionRusherPhysics": "gravity",
   "destructionRusherDespawnTime": 5,
+      "destructionRusherCorpseFadeTime": 1,
   "destructionOrbiterParticleCount": 40,
   "destructionOrbiterParticleSize": 0.32,
   "destructionOrbiterParticleSpeed": 1.25,
@@ -405,6 +406,7 @@ const PRESET_SETTINGS = [
   "destructionOrbiterColor": "#00cc44",
   "destructionOrbiterPhysics": "gravity",
   "destructionOrbiterDespawnTime": 3,
+      "destructionOrbiterCorpseFadeTime": 1,
   "destructionTankerParticleCount": 40,
   "destructionTankerParticleSize": 0.32,
   "destructionTankerParticleSpeed": 1.25,
@@ -412,6 +414,7 @@ const PRESET_SETTINGS = [
   "destructionTankerColor": "#2b2b2b",
   "destructionTankerPhysics": "gravity",
   "destructionTankerDespawnTime": 3,
+      "destructionTankerCorpseFadeTime": 1,
   "destructionSniperParticleCount": 40,
   "destructionSniperParticleSize": 0.32,
   "destructionSniperParticleSpeed": 1.25,
@@ -419,6 +422,7 @@ const PRESET_SETTINGS = [
   "destructionSniperColor": "#9b30ff",
   "destructionSniperPhysics": "gravity",
   "destructionSniperDespawnTime": 3,
+      "destructionSniperCorpseFadeTime": 1,
   "destructionTeleporterParticleCount": 40,
   "destructionTeleporterParticleSize": 0.32,
   "destructionTeleporterParticleSpeed": 1.25,
@@ -426,6 +430,7 @@ const PRESET_SETTINGS = [
   "destructionTeleporterColor": "#e0e0e0",
   "destructionTeleporterPhysics": "gravity",
   "destructionTeleporterDespawnTime": 3,
+      "destructionTeleporterCorpseFadeTime": 1,
   "destructionShieldedParticleCount": 40,
   "destructionShieldedParticleSize": 0.32,
   "destructionShieldedParticleSpeed": 1.25,
@@ -433,6 +438,7 @@ const PRESET_SETTINGS = [
   "destructionShieldedColor": "#4aa3ff",
   "destructionShieldedPhysics": "gravity",
   "destructionShieldedDespawnTime": 3,
+      "destructionShieldedCorpseFadeTime": 1,
   "destructionSplitterParticleCount": 100,
   "destructionSplitterParticleSize": 0.5,
   "destructionSplitterParticleSpeed": 1.75,
@@ -440,6 +446,7 @@ const PRESET_SETTINGS = [
   "destructionSplitterColor": "#80fb37",
   "destructionSplitterPhysics": "gravity",
   "destructionSplitterDespawnTime": 3,
+      "destructionSplitterCorpseFadeTime": 1,
   "destructionBossParticleCount": 100,
   "destructionBossParticleSize": 0.5,
   "destructionBossParticleSpeed": 1.75,
@@ -447,6 +454,7 @@ const PRESET_SETTINGS = [
   "destructionBossColor": "#111111",
   "destructionBossPhysics": "gravity",
   "destructionBossDespawnTime": 3,
+      "destructionBossCorpseFadeTime": 1,
   "destructionDestructibleParticleCount": 40,
   "destructionDestructibleParticleSize": 0.25,
   "destructionDestructibleParticleSpeed": 6,
@@ -5563,6 +5571,7 @@ function buildDestructionGroup(body, label, prefix, includeDespawn) {
 
   if (includeDespawn) {
     body.appendChild(slider({ key: `${prefix}DespawnTime`, label: 'Despawn Time', min: 0.1, max: 10, step: 0.1, dec: 1 }));
+    body.appendChild(slider({ key: `${prefix}CorpseFadeTime`, label: 'Corpse Fade Time', min: 0.1, max: 10, step: 0.1, dec: 1 }));
   }
 }
 
@@ -6232,7 +6241,7 @@ function applyAllParams() {
   p.cameraShakeRadius = clampSetting(p.cameraShakeRadius, 1, 80, 24);
   p.cameraShakeMinFactor = clampSetting(p.cameraShakeMinFactor, 0, 1, 0.12);
   p.overallBloomIntensity = clampSetting(p.overallBloomIntensity, 0, 4, 1.8);
-  [
+  const enemyDestructionPrefixes = [
     'destructionRusher',
     'destructionOrbiter',
     'destructionTanker',
@@ -6241,9 +6250,16 @@ function applyAllParams() {
     'destructionShielded',
     'destructionSplitter',
     'destructionBoss',
+  ];
+  [
+    ...enemyDestructionPrefixes,
     'destructionDestructible',
   ].forEach(prefix => {
     const key = `${prefix}ParticleDespawnTime`;
+    p[key] = clampSetting(p[key], 0.1, 10, 1);
+  });
+  enemyDestructionPrefixes.forEach(prefix => {
+    const key = `${prefix}CorpseFadeTime`;
     p[key] = clampSetting(p[key], 0.1, 10, 1);
   });
   p.radarRadius = clampSetting(p.radarRadius, 20, 150, 90);

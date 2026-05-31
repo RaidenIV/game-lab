@@ -785,6 +785,7 @@ function getDestructionConfig(enemy) {
     speed: Math.max(0.01, Number(getDestructionParam(prefix, 'ParticleSpeed', defaultParticleSpeedForEnemy(enemy))) || 1.25),
     glow: Math.max(0, Number(getDestructionParam(prefix, 'ParticleGlow', defaultParticleGlowForEnemy(enemy))) || 0),
     particleDespawnTime: Math.max(0.1, Number(getDestructionParam(prefix, 'ParticleDespawnTime', 1.0)) || 1.0),
+    corpseFadeTime: Math.max(0.1, Number(getDestructionParam(prefix, 'CorpseFadeTime', 1.0)) || 1.0),
     color: hexToNumber(getDestructionParam(prefix, 'Color', `#${fallbackColor.toString(16).padStart(6, '0')}`), fallbackColor),
     physics: getDestructionParam(prefix, 'Physics', state.params.enemyDestructionPhysics === false ? 'ethereal' : 'gravity') === 'ethereal' ? 'ethereal' : 'gravity',
     despawnTime: Math.max(0.1, Number(getDestructionParam(prefix, 'DespawnTime', 3.0)) || 3.0),
@@ -850,7 +851,7 @@ function spawnEnemyCorpse(enemy, cfg = getDestructionConfig(enemy)) {
   corpseMaterial.emissive?.set?.(enemy.def?.color ?? 0x888888);
   corpseMaterial.emissiveIntensity = 0.06;
   corpseMaterial.opacity = 1;
-  corpseMaterial.transparent = false;
+  corpseMaterial.transparent = true;
 
   const mesh = new THREE.Mesh(getEnemyGeometry(enemy.sizeMult), corpseMaterial);
   mesh.name = 'EnemyPhysicsCorpse';
@@ -876,6 +877,7 @@ function spawnEnemyCorpse(enemy, cfg = getDestructionConfig(enemy)) {
     rz: (Math.random() - 0.5) * 4.2,
     life: cfg.despawnTime,
     maxLife: cfg.despawnTime,
+    fadeTime: Math.min(cfg.despawnTime, Math.max(0.1, Number(cfg.corpseFadeTime) || 1.0)),
     radius: Math.max(0.25, BASE_RADIUS * enemy.sizeMult),
     physics: cfg.physics,
     grounded: false,
@@ -971,10 +973,11 @@ function updateEnemyCorpses(delta) {
       }
     }
 
-    const fadeWindow = Math.min(0.5, Math.max(0.1, corpse.maxLife * 0.25));
+    const fadeWindow = Math.min(corpse.maxLife, Math.max(0.1, Number(corpse.fadeTime) || 1.0));
     const t = corpse.life < fadeWindow ? clamp(corpse.life / fadeWindow, 0, 1) : 1;
     corpse.mesh.material.opacity = t;
-    corpse.mesh.material.transparent = t < 1;
+    corpse.mesh.material.transparent = true;
+    if ('emissiveIntensity' in corpse.mesh.material) corpse.mesh.material.emissiveIntensity = 0.06 * t;
   }
 }
 
@@ -1101,9 +1104,14 @@ function spawnSplitChildren(enemy) {
   }
 }
 
+function getDamageableNpcs() {
+  return enemies.concat(allies);
+}
+
 export function damageEnemiesAt(position, radius = 0.45, amount = 34) {
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    const enemy = enemies[i];
+  const targets = getDamageableNpcs();
+  for (let i = targets.length - 1; i >= 0; i--) {
+    const enemy = targets[i];
     const hitRadius = Math.max(0.45, enemy.radius + radius);
     _tmpVec.copy(enemy.group.position);
     _tmpVec.y = enemy.mesh.position.y;
@@ -1120,8 +1128,9 @@ export function damageEnemiesInRadius(position, radius = 1, amount = 34, falloff
   const maxRadius = Math.max(0.001, Number(radius) || 1);
   const baseDamage = Math.max(0, Number(amount) || 0);
   const falloffPower = clamp(Number(falloff) || 1, 0.1, 4);
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    const enemy = enemies[i];
+  const targets = getDamageableNpcs();
+  for (let i = targets.length - 1; i >= 0; i--) {
+    const enemy = targets[i];
     const enemyRadius = Math.max(0.35, enemy.radius || 0.4);
     _tmpVec.copy(enemy.group.position);
     _tmpVec.y = enemy.mesh.position.y;
@@ -1161,9 +1170,12 @@ function applyExplosionSplashDamage() {
     const radius = Math.max(0, Number(event.currentRadius) || 0);
     if (amount <= 0 || radius <= 0) continue;
 
-    const hitEnemyIds = Array.isArray(event.hitEnemyIds) ? event.hitEnemyIds : [];
-    event.hitEnemyIds = hitEnemyIds;
-    const hitSet = new Set(hitEnemyIds);
+    const hitNpcIds = Array.isArray(event.hitNpcIds)
+      ? event.hitNpcIds
+      : (Array.isArray(event.hitEnemyIds) ? event.hitEnemyIds : []);
+    event.hitNpcIds = hitNpcIds;
+    event.hitEnemyIds = hitNpcIds; // Backward-compatible alias for older explosion events.
+    const hitSet = new Set(hitNpcIds);
 
     if (!event.hitPlayer) {
       const playerRadius = Math.max(0.25, Number(state.params.playerRadius) || 0.4);
@@ -1174,15 +1186,16 @@ function applyExplosionSplashDamage() {
       }
     }
 
-    for (let i = enemies.length - 1; i >= 0; i--) {
-      const enemy = enemies[i];
+    const targets = getDamageableNpcs();
+    for (let i = targets.length - 1; i >= 0; i--) {
+      const enemy = targets[i];
       const id = enemy.group?.uuid;
       if (!id || hitSet.has(id)) continue;
 
       const enemyDistance = getExplosionSplashDistance(event, enemy.group.position);
       if (enemyDistance <= radius + Math.max(0.45, enemy.radius || 0)) {
         hitSet.add(id);
-        hitEnemyIds.push(id);
+        hitNpcIds.push(id);
         damageEnemy(enemy, getExplosionSplashDamage(event, enemyDistance));
       }
     }

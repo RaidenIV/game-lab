@@ -457,5 +457,13 @@
   "weaponGrenadeDamage": 95,
   "weaponGrenadeRadius": 5,
   "weaponRocketDamage": 130,
-  "weaponRocketRadius": 6
+  "weaponRocketRadius": 6,
+  "destructionRusherCorpseFadeTime": 1,
+  "destructionOrbiterCorpseFadeTime": 1,
+  "destructionTankerCorpseFadeTime": 1,
+  "destructionSniperCorpseFadeTime": 1,
+  "destructionTeleporterCorpseFadeTime": 1,
+  "destructionShieldedCorpseFadeTime": 1,
+  "destructionSplitterCorpseFadeTime": 1,
+  "destructionBossCorpseFadeTime": 1
 }

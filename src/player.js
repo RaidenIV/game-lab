@@ -201,7 +201,8 @@ function updatePlayerWeaponVisual() {
   const forwardZ = -Math.cos(az);
   const rightX = Math.cos(az);
   const rightZ = -Math.sin(az);
-  const rightOffset = radius + (type === 'grenades' ? 0.22 : 0.42);
+  const weaponSideGap = type === 'rifle' ? 0.21 : (type === 'grenades' ? 0.22 : 0.42);
+  const rightOffset = radius + weaponSideGap;
   const forwardOffset = type === 'grenades' ? 0.02 : 0.12;
 
   playerWeaponGroup.position.set(

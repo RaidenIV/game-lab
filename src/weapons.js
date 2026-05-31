@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { state } from './state.js';
 import { scene, camera } from './renderer.js';
 import { playerGroup, getPlayerWeaponMuzzle } from './player.js';
-import { damageEnemiesAt, damageEnemiesInRadius, getEnemies } from './enemies.js';
+import { damageEnemiesAt, damageEnemiesInRadius, getEnemies, getAllies } from './enemies.js';
 import { isPlacedObjectHit } from './placer.js';
 
 const _up = new THREE.Vector3(0, 1, 0);
@@ -233,7 +233,7 @@ export function resolveAimTarget() {
 
   let bestHit = null;
 
-  for (const enemy of getEnemies()) {
+  for (const enemy of getEnemies().concat(getAllies())) {
     if (!enemy || !enemy.group) continue;
     const hit = intersectEnemyAimVolume(rayOrigin, rayDir, enemy);
     if (!hit) continue;
