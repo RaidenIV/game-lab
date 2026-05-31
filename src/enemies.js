@@ -839,7 +839,14 @@ function updateDestructionParticles(delta) {
 }
 
 function spawnEnemyCorpse(enemy, cfg = getDestructionConfig(enemy)) {
-  const mesh = new THREE.Mesh(getEnemyGeometry(enemy.sizeMult), enemy.material.clone());
+  const corpseMaterial = enemy.material.clone();
+  corpseMaterial.color?.set?.(enemy.def?.color ?? 0x888888);
+  corpseMaterial.emissive?.set?.(enemy.def?.color ?? 0x888888);
+  corpseMaterial.emissiveIntensity = 0.06;
+  corpseMaterial.opacity = 1;
+  corpseMaterial.transparent = false;
+
+  const mesh = new THREE.Mesh(getEnemyGeometry(enemy.sizeMult), corpseMaterial);
   mesh.name = 'EnemyPhysicsCorpse';
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -848,20 +855,20 @@ function spawnEnemyCorpse(enemy, cfg = getDestructionConfig(enemy)) {
   mesh.quaternion.copy(enemy.group.quaternion);
   scene.add(mesh);
   liftCorpseAboveFloor({ mesh });
+
   const yaw = Math.random() * Math.PI * 2;
-  const speed = (0.45 + Math.random() * 1.0) * Math.max(0.15, cfg.speed);
+  const speed = (1.1 + Math.random() * 1.7) * Math.max(0.2, cfg.speed);
   enemyCorpses.push({
     mesh,
     vx: Math.cos(yaw) * speed,
-    vy: cfg.physics === 'gravity' ? 0.65 + Math.random() * 1.0 : 0.15 + Math.random() * 0.35,
+    vy: cfg.physics === 'gravity' ? 1.2 + Math.random() * 1.4 : 0.15 + Math.random() * 0.35,
     vz: Math.sin(yaw) * speed,
-    rx: (Math.random() - 0.5) * 2.2,
-    ry: (Math.random() - 0.5) * 2.2,
-    rz: (Math.random() - 0.5) * 2.2,
+    rx: (Math.random() - 0.5) * 4.2,
+    ry: (Math.random() - 0.5) * 4.2,
+    rz: (Math.random() - 0.5) * 4.2,
     life: cfg.despawnTime,
     maxLife: cfg.despawnTime,
     radius: Math.max(0.25, BASE_RADIUS * enemy.sizeMult),
-    grounded: false,
     physics: cfg.physics,
   });
 }
@@ -893,9 +900,9 @@ function updateEnemyCorpses(delta) {
       continue;
     }
 
-    if (corpse.physics === 'gravity' && !corpse.grounded) {
+    if (corpse.physics === 'gravity') {
       corpse.vy -= PARTICLE_GRAVITY * delta;
-    } else if (corpse.physics !== 'gravity') {
+    } else {
       corpse.vy += 0.1 * delta;
     }
 
@@ -909,45 +916,26 @@ function updateEnemyCorpses(delta) {
     if (corpse.physics === 'gravity') {
       const objectClipped = resolveCircleAgainstPlacedObjects(corpse.mesh.position, corpse.radius || 0.35, 2, {
         footY: Math.max(0, corpse.mesh.position.y - (corpse.radius || 0.35)),
-        grounded: corpse.grounded,
-        stepUp: 0.25,
-        stepDown: 0.35,
+        grounded: false,
+        stepUp: 0.12,
+        stepDown: 0.18,
       });
       if (objectClipped) {
-        corpse.vx *= 0.35;
-        corpse.vz *= 0.35;
+        corpse.vx *= -0.22;
+        corpse.vz *= -0.22;
+        corpse.rx *= 0.85;
+        corpse.ry *= 0.85;
+        corpse.rz *= 0.85;
       }
 
       if (liftCorpseAboveFloor(corpse)) {
-        if (Math.abs(corpse.vy) < 0.45) {
-          corpse.vy = 0;
-          corpse.grounded = true;
-        } else {
-          corpse.vy = Math.abs(corpse.vy) * 0.12;
-        }
-        corpse.vx *= 0.68;
-        corpse.vz *= 0.68;
-        corpse.rx *= 0.65;
-        corpse.ry *= 0.65;
-        corpse.rz *= 0.65;
-      }
-
-      if (corpse.grounded) {
-        const friction = Math.exp(-5.5 * delta);
-        corpse.vx *= friction;
-        corpse.vz *= friction;
-        corpse.rx *= friction;
-        corpse.ry *= friction;
-        corpse.rz *= friction;
-        if (Math.hypot(corpse.vx, corpse.vz) < 0.025) {
-          corpse.vx = 0;
-          corpse.vz = 0;
-        }
-        if (Math.hypot(corpse.rx, corpse.ry, corpse.rz) < 0.025) {
-          corpse.rx = 0;
-          corpse.ry = 0;
-          corpse.rz = 0;
-        }
+        corpse.vy = Math.abs(corpse.vy) > 0.22 ? Math.abs(corpse.vy) * 0.24 : 0;
+        const floorFriction = Math.exp(-1.65 * delta);
+        corpse.vx *= floorFriction;
+        corpse.vz *= floorFriction;
+        corpse.rx *= floorFriction;
+        corpse.ry *= floorFriction;
+        corpse.rz *= floorFriction;
       }
     }
 
@@ -1456,8 +1444,13 @@ function updateAllyMovement(ally, delta, elapsedTime, index, target = null) {
   }
   ally.spawnFlashTimer = Math.max(0, ally.spawnFlashTimer - delta);
   ally.mesh.position.y = (BASE_RADIUS + BASE_LENGTH / 2) * ally.sizeMult;
-  ally.material.opacity = ally.spawnFlashTimer > 0 ? clamp(1 - ally.spawnFlashTimer / 0.65, 0.25, 1) : 1;
-  ally.material.transparent = ally.spawnFlashTimer > 0;
+  const flash = ally.spawnFlashTimer > 0;
+  ally.material.opacity = flash ? clamp(1 - ally.spawnFlashTimer / 0.65, 0.25, 1) : 1;
+  ally.material.transparent = flash;
+  if (!flash && ally.material.emissiveIntensity > 0.06) {
+    ally.material.emissive.set(ally.def.color);
+    ally.material.emissiveIntensity = 0.06;
+  }
 }
 
 
