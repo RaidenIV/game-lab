@@ -380,7 +380,7 @@ const PRESET_SETTINGS = [
   ],
   "placerSelectedAsset": "destructible_crate",
   "radarEnabled": true,
-  "radarRadius": 60,
+  "radarRadius": 90,
   "radarRange": 60,
   "radarBgColor": "#0a1628",
   "radarEnemyColor": "#ff3030",
@@ -482,7 +482,11 @@ const PRESET_SETTINGS = [
   "destructionDestructibleShockwaveColor": "#ffd400",
   "destructionDestructibleShockwaveFadeTime": 0.45,
   "destructionDestructibleShockwaveDelay": 0,
-  "destructionDestructibleSplashDamage": 45
+  "destructionDestructibleShockwaveTransparency": 0.34,
+  "destructionDestructibleSplashDamage": 45,
+  "destructionDestructibleSplashRadius": 8,
+  "destructionDestructibleSplashFalloff": 1,
+  "destructionDestructibleSplashMinFactor": 0.15
 } },
   { key: 'g11', label: 'G11', path: './presets/G11.json', data: {
   "cameraMode": "third2",
@@ -778,7 +782,7 @@ const PRESET_SETTINGS = [
   ],
   "placerSelectedAsset": "tall_box",
   "radarEnabled": true,
-  "radarRadius": 60,
+  "radarRadius": 90,
   "radarRange": 60,
   "radarBgColor": "#0a1628",
   "radarEnemyColor": "#ff3030",
@@ -1170,7 +1174,7 @@ const PRESET_SETTINGS = [
   ],
   "placerSelectedAsset": "tall_box",
   "radarEnabled": true,
-  "radarRadius": 60,
+  "radarRadius": 90,
   "radarRange": 60,
   "radarBgColor": "#0a1628",
   "radarEnemyColor": "#ff3030",
@@ -1336,7 +1340,7 @@ const PRESET_SETTINGS = [
   "tagShadow": 1,
   "tagHeight": 30,
   "radarEnabled": true,
-  "radarRadius": 60,
+  "radarRadius": 90,
   "radarRange": 60,
   "radarBgColor": "#0a1628",
   "radarEnemyColor": "#ff3030",
@@ -1495,7 +1499,7 @@ const PRESET_SETTINGS = [
   "tagShadow": 1,
   "tagHeight": 30,
   "radarEnabled": true,
-  "radarRadius": 60,
+  "radarRadius": 90,
   "radarRange": 60,
   "radarBgColor": "#0a1628",
   "radarEnemyColor": "#ff3030",
@@ -1655,7 +1659,7 @@ const PRESET_SETTINGS = [
   "tagShadow": 4,
   "tagHeight": 25,
   "radarEnabled": true,
-  "radarRadius": 60,
+  "radarRadius": 90,
   "radarRange": 60,
   "radarBgColor": "#0a1628",
   "radarEnemyColor": "#ff3030",
@@ -1805,7 +1809,7 @@ const PRESET_SETTINGS = [
   "tagShadow": 3,
   "tagHeight": 25,
   "radarEnabled": true,
-  "radarRadius": 60,
+  "radarRadius": 90,
   "radarRange": 60,
   "radarBgColor": "#0a1628",
   "radarEnemyColor": "#ff3030",
@@ -1965,7 +1969,7 @@ const PRESET_SETTINGS = [
   "tagShadow": 4,
   "tagHeight": 18,
   "radarEnabled": true,
-  "radarRadius": 60,
+  "radarRadius": 90,
   "radarRange": 60,
   "radarBgColor": "#0a1628",
   "radarEnemyColor": "#ff3030",
@@ -2135,7 +2139,7 @@ const PRESET_SETTINGS = [
   "radarEnabled": true,
   "radarEnemyColor": "#ff3030",
   "radarOpacity": 0.82,
-  "radarRadius": 60,
+  "radarRadius": 90,
   "radarRange": 60,
   "shieldBloomIntensity": 0.12,
   "shieldBloomRadius": 1.18,
@@ -2295,7 +2299,7 @@ const PRESET_SETTINGS = [
   "radarEnabled": true,
   "radarEnemyColor": "#ff3030",
   "radarOpacity": 0.82,
-  "radarRadius": 60,
+  "radarRadius": 90,
   "radarRange": 60,
   "shieldBloomIntensity": 0.12,
   "shieldBloomRadius": 1.18,
@@ -3119,7 +3123,7 @@ function buildHUD(body) {
 
   body.appendChild(subhdr('Radar'));
   body.appendChild(toggle('Radar Enabled', 'radarEnabled'));
-  body.appendChild(slider({ key: 'radarRadius', label: 'Radar Radius', min: 20, max: 100, step: 1, dec: 0 }));
+  body.appendChild(slider({ key: 'radarRadius', label: 'Radar Radius', min: 20, max: 150, step: 1, dec: 0 }));
   body.appendChild(slider({ key: 'radarRange', label: 'World Range', min: 10, max: 200, step: 1, dec: 0 }));
   body.appendChild(colorPicker('Radar BG', 'radarBgColor'));
   body.appendChild(colorPicker('Enemy Dot', 'radarEnemyColor'));
@@ -3177,9 +3181,13 @@ function buildDestructionGroup(body, label, prefix, includeDespawn) {
     shockwaveGroup.appendChild(subhdr('Shockwave'));
     shockwaveGroup.appendChild(slider({ key: `${prefix}ShockwaveSpeed`, label: 'Speed', min: 0, max: 40, step: 0.5, dec: 1 }));
     shockwaveGroup.appendChild(colorPicker('Color', `${prefix}ShockwaveColor`));
+    shockwaveGroup.appendChild(slider({ key: `${prefix}ShockwaveTransparency`, label: 'Transparency', min: 0, max: 1, step: 0.01, dec: 2 }));
     shockwaveGroup.appendChild(slider({ key: `${prefix}ShockwaveFadeTime`, label: 'Fade Time', min: 0.05, max: 3, step: 0.05, dec: 2 }));
     shockwaveGroup.appendChild(slider({ key: `${prefix}ShockwaveDelay`, label: 'Delay', min: 0, max: 3, step: 0.05, dec: 2 }));
     shockwaveGroup.appendChild(slider({ key: `${prefix}SplashDamage`, label: 'Splash Damage', min: 0, max: 500, step: 1, dec: 0 }));
+    shockwaveGroup.appendChild(slider({ key: `${prefix}SplashRadius`, label: 'Splash Radius', min: 0, max: 80, step: 0.5, dec: 1 }));
+    shockwaveGroup.appendChild(slider({ key: `${prefix}SplashFalloff`, label: 'Damage Falloff', min: 0.1, max: 4, step: 0.1, dec: 1 }));
+    shockwaveGroup.appendChild(slider({ key: `${prefix}SplashMinFactor`, label: 'Min Damage', min: 0, max: 1, step: 0.01, dec: 2 }));
     body.appendChild(shockwaveGroup);
   }
 
@@ -3787,10 +3795,15 @@ function applyAllParams() {
   p.cameraShakeProximity = p.cameraShakeProximity !== false;
   p.cameraShakeRadius = clampSetting(p.cameraShakeRadius, 1, 80, 24);
   p.cameraShakeMinFactor = clampSetting(p.cameraShakeMinFactor, 0, 1, 0.12);
+  p.radarRadius = clampSetting(p.radarRadius, 20, 150, 90);
   p.destructionDestructibleShockwaveSpeed = clampSetting(p.destructionDestructibleShockwaveSpeed, 0, 40, 10);
   p.destructionDestructibleShockwaveFadeTime = clampSetting(p.destructionDestructibleShockwaveFadeTime, 0.05, 3, 0.45);
   p.destructionDestructibleShockwaveDelay = clampSetting(p.destructionDestructibleShockwaveDelay, 0, 3, 0);
+  p.destructionDestructibleShockwaveTransparency = clampSetting(p.destructionDestructibleShockwaveTransparency, 0, 1, 0.34);
   p.destructionDestructibleSplashDamage = clampSetting(p.destructionDestructibleSplashDamage, 0, 500, 45);
+  p.destructionDestructibleSplashRadius = clampSetting(p.destructionDestructibleSplashRadius, 0, 80, 8);
+  p.destructionDestructibleSplashFalloff = clampSetting(p.destructionDestructibleSplashFalloff, 0.1, 4, 1);
+  p.destructionDestructibleSplashMinFactor = clampSetting(p.destructionDestructibleSplashMinFactor, 0, 1, 0.15);
   if (!/^#[0-9a-fA-F]{6}$/.test(String(p.destructionDestructibleShockwaveColor || ''))) {
     p.destructionDestructibleShockwaveColor = p.destructionDestructibleColor || '#ffd400';
   }

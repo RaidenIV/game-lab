@@ -845,9 +845,13 @@ function getDestructibleExplosionConfig() {
     physics: destructionParam('destructionDestructible', 'Physics', p.enemyDestructionPhysics === false ? 'ethereal' : 'gravity'),
     shockwaveSpeed: clamp(Number(destructionParam('destructionDestructible', 'ShockwaveSpeed', 10)) || 0, 0, 40),
     shockwaveColor: hexToNumber(destructionParam('destructionDestructible', 'ShockwaveColor', destructionParam('destructionDestructible', 'Color', '#ffd400')), 0xffd400),
+    shockwaveTransparency: clamp(Number(destructionParam('destructionDestructible', 'ShockwaveTransparency', 0.34)) || 0, 0, 1),
     shockwaveFadeTime: clamp(Number(destructionParam('destructionDestructible', 'ShockwaveFadeTime', 0.45)) || 0.45, 0.05, 3),
     shockwaveDelay: clamp(Number(destructionParam('destructionDestructible', 'ShockwaveDelay', 0)) || 0, 0, 3),
     splashDamage: clamp(Number(destructionParam('destructionDestructible', 'SplashDamage', 45)) || 0, 0, 500),
+    splashRadius: clamp(Number(destructionParam('destructionDestructible', 'SplashRadius', 8)) || 0, 0, 80),
+    splashFalloff: clamp(Number(destructionParam('destructionDestructible', 'SplashFalloff', 1)) || 1, 0.1, 4),
+    splashMinFactor: clamp(Number(destructionParam('destructionDestructible', 'SplashMinFactor', 0.15)) || 0, 0, 1),
   };
 }
 
@@ -877,18 +881,23 @@ function releaseDestructibleParticle(particle) {
 function spawnDestructibleShockwave(cx, cy, cz, cfg) {
   const speed = Math.max(0, Number(cfg.shockwaveSpeed) || 0);
   const fadeTime = clamp(Number(cfg.shockwaveFadeTime) || 0.45, 0.05, 3);
-  const maxRadius = Math.max(0, speed * fadeTime);
+  const visualMaxRadius = Math.max(0, speed * fadeTime);
   const damage = Math.max(0, Number(cfg.splashDamage) || 0);
-  if (maxRadius <= 0 && damage <= 0) return;
+  const splashRadius = clamp(Number(cfg.splashRadius) || 0, 0, 80);
+  const damageMaxRadius = splashRadius > 0 ? splashRadius : visualMaxRadius;
+  if (visualMaxRadius <= 0 && (damage <= 0 || damageMaxRadius <= 0)) return;
 
   const event = {
     id: `destructible_splash_${_destructibleShockwaveId++}`,
     x: cx, y: cy, z: cz,
     currentRadius: 0,
-    maxRadius,
+    maxRadius: damageMaxRadius,
     damage,
+    damageFalloff: clamp(Number(cfg.splashFalloff) || 1, 0.1, 4),
+    minDamageFactor: clamp(Number(cfg.splashMinFactor) || 0, 0, 1),
     active: false,
     hitEnemyIds: [],
+    hitPlayer: false,
   };
   state.explosionSplashEvents = state.explosionSplashEvents || [];
   state.explosionSplashEvents.push(event);
@@ -911,7 +920,10 @@ function spawnDestructibleShockwave(cx, cy, cz, cfg) {
   _destructibleShockwaves.push({
     mesh, event,
     age: -clamp(Number(cfg.shockwaveDelay) || 0, 0, 3),
-    fadeTime, speed, maxRadius,
+    fadeTime, speed,
+    visualMaxRadius,
+    damageMaxRadius,
+    opacity: clamp(Number(cfg.shockwaveTransparency) || 0, 0, 1),
   });
 }
 
@@ -935,12 +947,13 @@ function updateDestructibleShockwaves(delta = 1 / 60) {
     }
 
     const t = clamp(shockwave.age / shockwave.fadeTime, 0, 1);
-    const radius = Math.max(0.001, Math.min(shockwave.maxRadius, shockwave.speed * shockwave.age));
-    shockwave.mesh.visible = true;
-    shockwave.mesh.scale.setScalar(radius);
-    shockwave.mesh.material.opacity = 0.34 * (1 - t);
+    const visualRadius = Math.max(0.001, Math.min(shockwave.visualMaxRadius, shockwave.speed * shockwave.age));
+    const damageRadius = Math.max(0, Math.min(shockwave.damageMaxRadius, shockwave.damageMaxRadius * t));
+    shockwave.mesh.visible = shockwave.visualMaxRadius > 0 && shockwave.opacity > 0;
+    shockwave.mesh.scale.setScalar(visualRadius);
+    shockwave.mesh.material.opacity = shockwave.opacity * (1 - t);
     shockwave.event.active = true;
-    shockwave.event.currentRadius = radius;
+    shockwave.event.currentRadius = damageRadius;
 
     if (shockwave.age >= shockwave.fadeTime) {
       if (shockwave.expired) {

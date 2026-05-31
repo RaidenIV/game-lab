@@ -996,6 +996,22 @@ export function damageEnemiesAt(position, radius = 0.45, amount = 34) {
   return false;
 }
 
+function getExplosionSplashDistance(event, position) {
+  const dx = Number(position.x) - (Number(event.x) || 0);
+  const dz = Number(position.z) - (Number(event.z) || 0);
+  return Math.hypot(dx, dz);
+}
+
+function getExplosionSplashDamage(event, distance) {
+  const baseDamage = Math.max(0, Number(event.damage) || 0);
+  const maxRadius = Math.max(0.001, Number(event.maxRadius) || Number(event.currentRadius) || 0.001);
+  const falloff = clamp(Number(event.damageFalloff) || 1, 0.1, 4);
+  const minFactor = clamp(Number(event.minDamageFactor) || 0, 0, 1);
+  const normalized = clamp(distance / maxRadius, 0, 1);
+  const proximityFactor = 1 - Math.pow(normalized, falloff);
+  return baseDamage * Math.max(minFactor, proximityFactor);
+}
+
 function applyExplosionSplashDamage() {
   const events = state.explosionSplashEvents || [];
   if (!events.length) return;
@@ -1009,19 +1025,26 @@ function applyExplosionSplashDamage() {
     const hitEnemyIds = Array.isArray(event.hitEnemyIds) ? event.hitEnemyIds : [];
     event.hitEnemyIds = hitEnemyIds;
     const hitSet = new Set(hitEnemyIds);
-    const origin = _tmpVec.set(Number(event.x) || 0, Number(event.y) || 0, Number(event.z) || 0);
+
+    if (!event.hitPlayer) {
+      const playerRadius = Math.max(0.25, Number(state.params.playerRadius) || 0.4);
+      const playerDistance = getExplosionSplashDistance(event, playerGroup.position);
+      if (playerDistance <= radius + playerRadius) {
+        event.hitPlayer = true;
+        applyPlayerDamage(getExplosionSplashDamage(event, playerDistance));
+      }
+    }
 
     for (let i = enemies.length - 1; i >= 0; i--) {
       const enemy = enemies[i];
       const id = enemy.group?.uuid;
       if (!id || hitSet.has(id)) continue;
 
-      _splashVec.copy(enemy.group.position);
-      _splashVec.y = enemy.mesh.position.y;
-      if (_splashVec.distanceTo(origin) <= radius + Math.max(0.45, enemy.radius || 0)) {
+      const enemyDistance = getExplosionSplashDistance(event, enemy.group.position);
+      if (enemyDistance <= radius + Math.max(0.45, enemy.radius || 0)) {
         hitSet.add(id);
         hitEnemyIds.push(id);
-        damageEnemy(enemy, amount);
+        damageEnemy(enemy, getExplosionSplashDamage(event, enemyDistance));
       }
     }
   }

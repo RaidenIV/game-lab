@@ -385,7 +385,7 @@ export const state = {
         ],
         "placerSelectedAsset": "destructible_crate",
         "radarEnabled": true,
-        "radarRadius": 60,
+        "radarRadius": 90,
         "radarRange": 60,
         "radarBgColor": "#0a1628",
         "radarEnemyColor": "#ff3030",
@@ -487,8 +487,13 @@ export const state = {
         "destructionDestructibleShockwaveColor": "#ffd400",
         "destructionDestructibleShockwaveFadeTime": 0.45,
         "destructionDestructibleShockwaveDelay": 0,
-        "destructionDestructibleSplashDamage": 45
+        "destructionDestructibleShockwaveTransparency": 0.34,
+        "destructionDestructibleSplashDamage": 45,
+        "destructionDestructibleSplashRadius": 8,
+        "destructionDestructibleSplashFalloff": 1,
+        "destructionDestructibleSplashMinFactor": 0.15
 }
+},
 };
 
 // Snapshot taken at startup — used by Reset button

@@ -48,7 +48,7 @@ function updateRadar() {
   _radarCanvas.style.display = enabled ? 'block' : 'none';
   if (!enabled) return;
 
-  const radius = Math.max(20, Number(p.radarRadius) || 60);
+  const radius = Math.max(20, Number(p.radarRadius) || 90);
   const range  = Math.max(1,  Number(p.radarRange)  || 60);
   const size   = radius * 2;
   const opacity    = Math.max(0, Math.min(1, Number(p.radarOpacity) ?? 0.82));
@@ -62,17 +62,17 @@ function updateRadar() {
     _radarCanvas.height = size;
     _radarCanvas.style.width  = `${size}px`;
     _radarCanvas.style.height = `${size}px`;
-    _radarCanvas.style.borderRadius = '50%';
+    _radarCanvas.style.borderRadius = '0px';
   }
 
   const ctx = _radarCtx;
   ctx.clearRect(0, 0, size, size);
   ctx.globalAlpha = opacity;
 
-  // Clip to circle
+  // Clip to square radar bounds
   ctx.save();
   ctx.beginPath();
-  ctx.arc(radius, radius, radius, 0, Math.PI * 2);
+  ctx.rect(0, 0, size, size);
   ctx.clip();
 
   // Background
