@@ -8,7 +8,7 @@ export const state = {
   slowTimer: 0,
   slowScale: 0.35,
   slowRequested: false,
-  activePreset: 'g14',
+  activePreset: 'g15',
   mouseLookActive: false,
   isAiming: false,          // true while right-mouse / L2 held
   activeSlot: 0,            // 0 = laser, 1 = object placer
@@ -493,7 +493,6 @@ export const state = {
         "destructionDestructibleSplashFalloff": 1,
         "destructionDestructibleSplashMinFactor": 0.15
 }
-},
 };
 
 // Snapshot taken at startup — used by Reset button
